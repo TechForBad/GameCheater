@@ -97,12 +97,13 @@ void Worker()
     LOG("init DBKDriver success");
 
     // 加载自定义驱动
+    LOG("loading %ws", g_DriverName);
     if (!DBK_LoadMyDriver(g_LoadType, g_DriverFilePath, g_DriverName))
     {
-        LOG("load my driver failed");
+        LOG("load %ws failed", g_DriverName);
         return;
     }
-    LOG("test DBKDriver");
+    LOG("load %ws finished", g_DriverName);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)

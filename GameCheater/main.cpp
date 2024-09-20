@@ -22,7 +22,7 @@ int main()
         return -1;
     }
 
-    // 启动进程
+    // 启动进程加载自定义驱动
     wchar_t cur_dir_path[MAX_PATH] = { 0 };
     if (!tool::GetCurrentModuleDirPath(cur_dir_path))
     {
