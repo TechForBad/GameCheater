@@ -11,6 +11,24 @@ INT64 __fastcall NtSetCompositionSurfaceAnalogExclusive(PVOID a1, PVOID a2, PVOI
 		return Qword_ptrOriginal(a1, a2, SectionInfo, a4, a5);
 	}
 
+
+
+
+	Printf("Called Qword_ptrHooked!\n");
+	/*A3 will be the data ptr to send the data struct ptr*/
+	Printf("a3: 0x%p\n", SectionInfo);
+	/*
+	Check if the call is by your usermode process using a magic number that need to match!
+	Do your driver stuff here
+	if your done return with 0
+	"return 0;"
+	*/
+	//Return Original:
+	return Qword_ptrOriginal(a1, a2, SectionInfo, a4, a5);
+
+
+
+
 	//	Printf("[>] Called\n");
 
 	if (SectionInfo)
@@ -27,31 +45,30 @@ INT64 __fastcall NtSetCompositionSurfaceAnalogExclusive(PVOID a1, PVOID a2, PVOI
 			return Qword_ptrOriginal(a1, a2, SectionInfo, a4, a5);
 		}
 
-		//Printf("[>] m->type %x\n",m->type);
+		// Printf("[>] m->type %x\n",m->type);
 
 		if (m->type == 1)
 		{
-
-			//Simple check to know if the driver is available
+			// Simple check to know if the driver is available
 
 			PEPROCESS usermode_process;
 			if (NT_SUCCESS(PsLookupProcessByProcessId((HANDLE)m->usermode_pid, &usermode_process)))
 			{
 				m->output = (void*)0x9999;
-				//Printf("Checking if we're attached! %x", m->output);
+				// Printf("Checking if we're attached! %x", m->output);
 			}
 
 			return 9999;
 		}
 		else if (m->type == 2)
 		{
-			//Clear PiDDBCacheTable
+			// Clear PiDDBCacheTable
 			return cleaner::ClearPiDDBCacheTable();
 		}
 		else if (m->type == 3)
 		{
 			Printf("Read Check 1\n");
-			//Read process memory
+			// Read process memory
 			if (!m->address || !m->size || !m->usermode_pid || !m->target_pid) return STATUS_INVALID_PARAMETER_1;
 
 			PEPROCESS usermode_process;
@@ -64,7 +81,7 @@ INT64 __fastcall NtSetCompositionSurfaceAnalogExclusive(PVOID a1, PVOID a2, PVOI
 					Printf("Read Check 3\n");
 					SIZE_T bytes = 0;
 
-					/*if (!MmIsAddressValid((PVOID)m->address))
+					/* if (!MmIsAddressValid((PVOID)m->address))
 					{
 						Printf("Read Check 4 %llx \n", (ULONG64)m->address);
 						m->output = 0x00;
@@ -104,7 +121,7 @@ INT64 __fastcall NtSetCompositionSurfaceAnalogExclusive(PVOID a1, PVOID a2, PVOI
 		}
 		else if (m->type == 7)
 		{
-			//Write process memory
+			// Write process memory
 			if (!m->address || !m->size || !m->output || !m->usermode_pid || !m->target_pid) return STATUS_INVALID_PARAMETER_1;
 
 			PEPROCESS usermode_process;
@@ -128,12 +145,12 @@ INT64 __fastcall NtSetCompositionSurfaceAnalogExclusive(PVOID a1, PVOID a2, PVOI
 		}
 		else if (m->type == 8)
 		{
-			//Call this before calling the next function
+			// Call this before calling the next function
 			return cleaner::RetrieveMmUnloadedDriversData();
 		}
 		else if (m->type == 9)
 		{
-			//Clear MmUnloadedDrivers list
+			// Clear MmUnloadedDrivers list
 			UNICODE_STRING iqvw64e = RTL_CONSTANT_STRING(L"iqvw64e.sys");
 			return cleaner::ClearMmUnloadedDrivers(&iqvw64e, true);
 		}
@@ -145,7 +162,7 @@ INT64 __fastcall NtSetCompositionSurfaceAnalogExclusive(PVOID a1, PVOID a2, PVOI
 	}
 
 	return Qword_ptrOriginal(a1, a2, SectionInfo, a4, a5);
-	//return -1;
+	// return -1;
 }
 
 extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path)
@@ -153,64 +170,32 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING re
 	UNREFERENCED_PARAMETER(driver_object);
 	UNREFERENCED_PARAMETER(registry_path);
 
-	DbgPrint("Enter DriverEntry");
+	Printf("Enter DriverEntry");
 
-	//Hook the function to NtSetCompositionSurfaceAnalogExclusive
-	//mem::Hook(&NtSetCompositionSurfaceAnalogExclusive);
-
+	// Hook the function to NtSetCompositionSurfaceAnalogExclusive
+	// mem::Hook(&NtSetCompositionSurfaceAnalogExclusive);
 
 	auto wink32base = mem::GetSystemBaseModule("\\SystemRoot\\System32\\win32kbase.sys");
-
-	if (wink32base)
+	if (NULL == wink32base)
 	{
-		auto dataPtr = cleaner::FindPattern((UINT64)wink32base, (UINT64)0xFFFFFFFFFF, (BYTE*)"\x74\x20\x48\x8B\x44\x24\x00\x44", "xxxxxx?x");
-
-		if (dataPtr)
-		{
-			UINT64 qword_ptr_derf = (UINT64)(dataPtr)-0xA;
-
-			qword_ptr_derf = (UINT64)qword_ptr_derf + *(PINT)((PBYTE)qword_ptr_derf + 3) + 7; //6
-
-			auto RVA = qword_ptr_derf - (UINT64)wink32base;
-
-			Printf("dataPtr 0x%llx, qword_ptr_derf 0x%llx RVA 0x%llx\n", dataPtr, qword_ptr_derf, RVA);
-
-			PEPROCESS Target;
-			NTSTATUS Status;
-
-			if (NT_SUCCESS(Status = mem::FindProcessByName("explorer.exe", &Target)))
-			{
-				if (Target)
-				{
-					KeAttachProcess(Target);
-
-					*(PVOID*)&Qword_ptrOriginal = InterlockedExchangePointer((PVOID*)qword_ptr_derf, (PVOID)NtSetCompositionSurfaceAnalogExclusive);
-
-					KeDetachProcess();
-				}
-				else
-				{
-					Printf("Error! Target == NULL");
-				}
-			}
-			else
-			{
-				Printf("Error! explorer.exe not found! Status : 0x%x", Status);
-			}
-
-
-		}
-		else
-		{
-			Printf("Error! ApiSetEditionGetUserObjectInformationEntryPoint not found!\n");
-		}
-	}
-	else
-	{
-		Printf("Error! Win32kbase not found!\n");
-
+		Printf("Error! Get win32kbase.sys module base address failed\n");
+		return STATUS_UNSUCCESSFUL;
 	}
 
-	DbgPrint("Leave DriverEntry");
+    auto data_ptr = cleaner::FindPattern((UINT64)wink32base, (UINT64)0xFFFFFFFFFF, (BYTE*)"\x74\x20\x48\x8B\x44\x24\x00\x44", "xxxxxx?x");
+	if (NULL == data_ptr)
+	{
+		Printf("Error! ApiSetEditionGetUserObjectInformationEntryPoint not found!\n");
+		return STATUS_UNSUCCESSFUL;
+	}
+
+    UINT64 qword_ptr_derf = (UINT64)(data_ptr) - 0xA;
+    qword_ptr_derf = (UINT64)qword_ptr_derf + *(PINT)((PBYTE)qword_ptr_derf + 3) + 7;  // 6
+    auto RVA = qword_ptr_derf - (UINT64)wink32base;
+    Printf("data_ptr 0x%llx, qword_ptr_derf 0x%llx, RVA 0x%llx\n", data_ptr, qword_ptr_derf, RVA);
+
+    *(PVOID*)&Qword_ptrOriginal = InterlockedExchangePointer((PVOID*)qword_ptr_derf, (PVOID)NtSetCompositionSurfaceAnalogExclusive);
+
+	Printf("Leave DriverEntry");
 	return STATUS_SUCCESS;
 }

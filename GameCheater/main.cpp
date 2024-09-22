@@ -3,7 +3,7 @@
 
 #include "../Common/common.h"
 
-#pragma warning(disable: 4996)
+PVOID(__fastcall* fun_NtUserGetObjectInformation)(PVOID a1, unsigned int a2, PVOID a3, unsigned int a4, PVOID a5);
 
 int main()
 {
@@ -11,6 +11,19 @@ int main()
     if (!tool::AdjustProcessTokenPrivilege())
     {
         LOG("AdjustProcessTokenPrivilege failed");
+        return -1;
+    }
+
+    HMODULE hWin32u = LoadLibraryA("win32u.dll");
+    if (NULL == hWin32u)
+    {
+        LOG("LoadLibraryA win32u.dll failed");
+        return -1;
+    }
+    *(PVOID*)&fun_NtUserGetObjectInformation = GetProcAddress(hWin32u, "NtUserGetObjectInformation");
+    if (NULL == fun_NtUserGetObjectInformation)
+    {
+        LOG("GetProcAddress NtUserGetObjectInformation failed");
         return -1;
     }
 
@@ -50,6 +63,8 @@ int main()
         LOG("richstuff process exit with nonzero code: %d", exit_code);
         return exit_code;
     }
+
+    fun_NtUserGetObjectInformation(NULL, NULL, (PVOID)0x99, NULL, NULL);
 
     return 0;
 }
