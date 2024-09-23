@@ -3,7 +3,7 @@
 
 #include "../Common/common.h"
 
-PVOID(__fastcall* fun_NtUserGetObjectInformation)(PVOID a1, unsigned int a2, PVOID a3, unsigned int a4, PVOID a5);
+__int64(__fastcall* fun_NtUserSetGestureConfig)(void* param) = nullptr;
 
 int main()
 {
@@ -20,10 +20,10 @@ int main()
         LOG("LoadLibraryA win32u.dll failed");
         return -1;
     }
-    *(PVOID*)&fun_NtUserGetObjectInformation = GetProcAddress(hWin32u, "NtUserGetObjectInformation");
-    if (NULL == fun_NtUserGetObjectInformation)
+    *(PVOID*)&fun_NtUserSetGestureConfig = GetProcAddress(hWin32u, "NtUserSetGestureConfig");
+    if (NULL == fun_NtUserSetGestureConfig)
     {
-        LOG("GetProcAddress NtUserGetObjectInformation failed");
+        LOG("GetProcAddress NtUserSetGestureConfig failed");
         return -1;
     }
 
@@ -64,7 +64,10 @@ int main()
         return exit_code;
     }
 
-    fun_NtUserGetObjectInformation(NULL, NULL, (PVOID)0x99, NULL, NULL);
+    cmd_t cmd{};
+    cmd.verification_code = SYSCALL_CODE;
+    cmd.operation = for_test;
+    fun_NtUserSetGestureConfig(&cmd);
 
     return 0;
 }

@@ -8,6 +8,7 @@
 #include <filesystem>
 
 #include "public_def.h"
+#include "../SafeKProtect/communication.h"
 
 #pragma warning(disable: 4996)
 

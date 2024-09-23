@@ -5,7 +5,7 @@
 namespace mem
 {
 
-PVOID GetSystemBaseModule(const char* module_name)
+PVOID GetSystemModuleBase(const char* module_name, PULONG module_size)
 {
     ULONG bytes = 0;
     NTSTATUS status = ZwQuerySystemInformation(SystemModuleInformation, 0, bytes, &bytes);
@@ -23,13 +23,13 @@ PVOID GetSystemBaseModule(const char* module_name)
     }
 
     PRTL_PROCESS_MODULE_INFORMATION module = modules->Modules;
-    PVOID module_base = 0, module_size = 0;
+    PVOID module_base = 0;
     for (ULONG i = 0; i < modules->NumberOfModules; i++)
     {
         if (strcmp((char*)module[i].FullPathName, module_name) == 0)
         {
             module_base = module[i].ImageBase;
-            module_size = (PVOID)module[i].ImageSize;
+            *module_size = module[i].ImageSize;
             break;
         }
     }
@@ -47,7 +47,8 @@ PVOID GetSystemBaseModule(const char* module_name)
 
 PVOID GetSystemBaseModuleExport(const char* module_name, LPCSTR routine_name)
 {
-    PVOID base_module = mem::GetSystemBaseModule(module_name);
+    ULONG module_size = 0;
+    PVOID base_module = mem::GetSystemModuleBase(module_name, &module_size);
     if (!base_module)
     {
         return NULL;

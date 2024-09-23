@@ -124,6 +124,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cleaner.h" />
+    <ClInclude Include="communication.h" />
     <ClInclude Include="imports.h" />
     <ClInclude Include="mem.h" />
   </ItemGroup>

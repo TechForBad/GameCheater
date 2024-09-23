@@ -7,5 +7,6 @@
     <ClInclude Include="mem.h" />
     <ClInclude Include="imports.h" />
     <ClInclude Include="cleaner.h" />
+    <ClInclude Include="communication.h" />
   </ItemGroup>
 </Project>
