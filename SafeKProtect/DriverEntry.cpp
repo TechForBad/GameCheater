@@ -21,7 +21,7 @@ __int64 __fastcall fun_HaliQuerySystemInformation(unsigned int a1, unsigned int 
 
 	Printf("Process Name: %s a3: 0x%llx, *a3: 0x%llx", procName, (UINT64)a3, a3->QuadPart);
 
-    return 0;
+    return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
 }
 
 extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path)
