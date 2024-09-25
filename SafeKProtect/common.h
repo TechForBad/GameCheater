@@ -25,6 +25,6 @@ ProbeForWrite(pointer, size, TYPE_ALIGNMENT(BYTE))
 _Pragma("warning(suppress : 6001)")                                           \
 ProbeForRead(pointer, size, TYPE_ALIGNMENT(BYTE))
 
-ULONG GetProcessNameOffset();
+BOOL InitGetProcessNameOffset();
 
-BOOL GetProcessName(IN PEPROCESS proc, OUT PCHAR procName);
+VOID GetProcessName(IN PEPROCESS proc, OUT PCHAR procName);

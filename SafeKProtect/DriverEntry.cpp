@@ -13,13 +13,9 @@ __int64 __fastcall fun_HaliQuerySystemInformation(unsigned int a1, unsigned int 
     }
 
 	CHAR procName[200] = { 0 };
-	if (!GetProcessName(PsGetCurrentProcess(), procName))
-	{
-		Printf("GetProcessName failed");
-		return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
-	}
+	GetProcessName(PsGetCurrentProcess(), procName);
 
-	Printf("Process Name: %s a3: 0x%llx, *a3: 0x%llx", procName, (UINT64)a3, a3->QuadPart);
+	Printf("Process Name: %s, a3: 0x%llx, *a3: 0x%llx", procName, (UINT64)a3, a3->QuadPart);
 
     return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
 }
@@ -30,6 +26,12 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING re
 	UNREFERENCED_PARAMETER(registry_path);
 
 	Printf("Enter DriverEntry");
+
+	if (!InitGetProcessNameOffset())
+	{
+        Printf("Error! InitGetProcessNameOffset failed");
+        return STATUS_UNSUCCESSFUL;
+	}
 
 	ULONG ntModuleSize = 0;
 	PVOID ntModuleBase = mem::GetSystemModuleBase("\\SystemRoot\\system32\\ntoskrnl.exe", &ntModuleSize);
