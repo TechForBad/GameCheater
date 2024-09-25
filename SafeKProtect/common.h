@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Common/public_def.h"
+
 #include "imports.h"
 #include "communication.h"
 #include "mem.h"
@@ -22,3 +24,7 @@ ProbeForWrite(pointer, size, TYPE_ALIGNMENT(BYTE))
 #define ProbeInputBytes(pointer, size)                                        \
 _Pragma("warning(suppress : 6001)")                                           \
 ProbeForRead(pointer, size, TYPE_ALIGNMENT(BYTE))
+
+ULONG GetProcessNameOffset();
+
+BOOL GetProcessName(IN PEPROCESS proc, OUT PCHAR procName);

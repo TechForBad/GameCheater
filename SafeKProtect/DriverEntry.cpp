@@ -12,7 +12,14 @@ __int64 __fastcall fun_HaliQuerySystemInformation(unsigned int a1, unsigned int 
         return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
     }
 
-	Printf("a3: 0x%llx, *a3: 0x%llx", (UINT64)a3, a3->QuadPart);
+	CHAR procName[200] = { 0 };
+	if (!GetProcessName(PsGetCurrentProcess(), procName))
+	{
+		Printf("GetProcessName failed");
+		return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
+	}
+
+	Printf("Process Name: %s a3: 0x%llx, *a3: 0x%llx", procName, (UINT64)a3, a3->QuadPart);
 
     return 0;
 }
