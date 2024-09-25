@@ -1,61 +1,18 @@
-#include "mem.h"
-#include "cleaner.h"
-#include "imports.h"
-#include "communication.h"
+#include "common.h"
 
-#define NT_QWORD_SIG ("\x48\x8B\x05\x00\x00\x00\x00\x48\x85\xC0\x74\x10\x44\x8B\x54\x24\x00\x44\x89\x54\x24\x00\xFF\x15\x00\x00\x00\x00\x48\x83\xC4\x38\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x48\x83\xEC\x38\x48\x8B\x05\x00\x00\x00\x00\x48\x85\xC0\x74\x10")
-#define NT_QWORD_MASK ("xxx????xxxxxxxxx?xxxx?xx????xxxxxxxxxxxxxxxxxxx????xxxxx")
+#define NT_QWORD_SIG ("\x48\x8B\x05\x00\x00\x00\x00\x4C\x8D\x4C\x24\x60\xBA\x18\x00\x00\x00\x89\x4C\x24\x30\x4C\x8D\x44\x24\x30\x8D\x4A\xE9\xE8")
+#define NT_QWORD_MASK ("xxx????xxxxxxxxxxxxxxxxxxxxxxx")
 
-__int64(__fastcall* origin_NtUserSetGestureConfig)(void* param);
+__int64(__fastcall* origin_HaliQuerySystemInformation)(unsigned int a1, unsigned int a2, LARGE_INTEGER* a3, unsigned int* a4);
 
-__int64 __fastcall fun_NtUserSetGestureConfig(void* param)
+__int64 __fastcall fun_HaliQuerySystemInformation(unsigned int a1, unsigned int a2, LARGE_INTEGER* a3, unsigned int* a4)
 {
-    if (reinterpret_cast<cmd_t*>(param)->verification_code != SYSCALL_CODE)
+    if ((1 != a1) || (24 != a2) || (NULL == a3) || (UserMode != ExGetPreviousMode()))
     {
-        return origin_NtUserSetGestureConfig(param);
+        return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
     }
 
-    cmd_t* cmd = reinterpret_cast<cmd_t*>(param);
-
-    switch (cmd->operation)
-    {
-    case for_test:
-    {
-        Printf("[+] Called test operation!");
-        cmd->success = true;
-        break;
-    }
-    case memory_read:
-    {
-        Printf("[+] Called read operation!");
-        // mem::read_physical_memory((HANDLE)cmd->pid, (PVOID)cmd->address, cmd->buffer, cmd->size);
-        cmd->success = true;
-        break;
-    }
-
-    case memory_write:
-    {
-        Printf("[+] Called write operation!");
-        // mem::write_physical_memory((HANDLE)cmd->pid, (PVOID)cmd->address, cmd->buffer, cmd->size);
-        cmd->success = true;
-        break;
-    }
-
-    case module_base:
-    {
-        Printf("[+] Called base address operation!");
-        // cmd->base_address = mem::get_module_base_address(cmd->pid, cmd->module_name);
-        cmd->success = true;
-        break;
-    }
-
-    default:
-    {
-        Printf("[-] No operation found");
-        cmd->success = false;
-        break;
-    }
-    }
+	Printf("a3: 0x%llx, *a3: 0x%llx", (UINT64)a3, a3->QuadPart);
 
     return 0;
 }
@@ -67,27 +24,26 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING re
 
 	Printf("Enter DriverEntry");
 
-	ULONG win32k_module_size = 0;
-	PVOID wink32k_module_base = mem::GetSystemModuleBase("\\SystemRoot\\System32\\win32k.sys", &win32k_module_size);
-	if (NULL == wink32k_module_base || 0 == win32k_module_size)
+	ULONG ntModuleSize = 0;
+	PVOID ntModuleBase = mem::GetSystemModuleBase("\\SystemRoot\\system32\\ntoskrnl.exe", &ntModuleSize);
+	if ((NULL == ntModuleBase) || (0 == ntModuleSize))
 	{
-		Printf("Error! Get win32k.sys module base address failed\n");
+		Printf("Error! GetSystemModuleBase failed");
 		return STATUS_UNSUCCESSFUL;
 	}
 
-    UINT64 data_ptr = cleaner::FindPattern((UINT64)wink32k_module_base, (UINT64)win32k_module_size, (BYTE*)NT_QWORD_SIG, NT_QWORD_MASK);
-	if (NULL == data_ptr)
+    UINT64 dataPtr = cleaner::FindPattern((UINT64)ntModuleBase, (UINT64)ntModuleSize, (BYTE*)NT_QWORD_SIG, NT_QWORD_MASK);
+	if (NULL == dataPtr)
 	{
-		Printf("Error! FindPattern failed\n");
+		Printf("Error! FindPattern failed");
 		return STATUS_UNSUCCESSFUL;
 	}
 
-    UINT64 qword_ptr_derf = (UINT64)(data_ptr);
-    qword_ptr_derf = (UINT64)qword_ptr_derf + *(PINT)((PBYTE)qword_ptr_derf + 3) + 7;  // 6
-    auto RVA = qword_ptr_derf - (UINT64)wink32k_module_base;
-    Printf("data_ptr 0x%llx, qword_ptr_derf 0x%llx, RVA 0x%llx\n", data_ptr, qword_ptr_derf, RVA);
+    UINT64 refFunc = (UINT64)dataPtr + *(PINT32)((PBYTE)dataPtr + 3) + 7;
+    UINT64 rvaFunc = refFunc - (UINT64)ntModuleBase;
+    Printf("data_ptr 0x%llx, ref_func 0x%llx, rva 0x%llx\n", dataPtr, refFunc, rvaFunc);
 
-    *(PVOID*)&origin_NtUserSetGestureConfig = InterlockedExchangePointer((PVOID*)qword_ptr_derf, (PVOID)fun_NtUserSetGestureConfig);
+    *(PVOID*)&origin_HaliQuerySystemInformation = InterlockedExchangePointer((PVOID*)refFunc, (PVOID)fun_HaliQuerySystemInformation);
 
 	Printf("Leave DriverEntry");
 	return STATUS_SUCCESS;

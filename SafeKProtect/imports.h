@@ -6,8 +6,6 @@
 #include <windef.h>
 #include <ntstrsafe.h>
 
-#define Printf(...) DbgPrintEx( DPFLTR_SYSTEM_ID, DPFLTR_ERROR_LEVEL, "[+]" __VA_ARGS__ )
-
 typedef struct PiDDBCacheEntry
 {
     LIST_ENTRY		List;

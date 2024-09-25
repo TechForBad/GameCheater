@@ -2,7 +2,7 @@
 
 #define SYSCALL_CODE 0xDEADBEEF
 
-enum operation : int
+enum Operation : int
 {
     for_test = 0,
     memory_read,
@@ -10,17 +10,13 @@ enum operation : int
     module_base,
 };
 
-#pragma pack(1)  // 设置1字节对齐
-struct cmd_t
+#pragma pack(1)
+struct COMM_MSG
 {
-    bool success = false;
-    unsigned int verification_code = 0;
-    operation operation;
-    void* buffer;
-    ULONG64	address;
-    ULONG size;
-    ULONG pid;
-    const char* module_name;
-    ULONG64 base_address;
+    Operation oper;
+    union
+    {
+
+    };
 };
-#pragma pack()  // 恢复默认对齐
+#pragma pack()

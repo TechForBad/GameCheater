@@ -3,7 +3,36 @@
 
 #include "../Common/common.h"
 
-__int64(__fastcall* fun_NtUserSetGestureConfig)(void* param) = nullptr;
+typedef enum _KPROFILE_SOURCE
+{
+    ProfileTime,
+    ProfileAlignmentFixup,
+    ProfileTotalIssues,
+    ProfilePipelineDry,
+    ProfileLoadInstructions,
+    ProfilePipelineFrozen,
+    ProfileBranchInstructions,
+    ProfileTotalNonissues,
+    ProfileDcacheMisses,
+    ProfileIcacheMisses,
+    ProfileCacheMisses,
+    ProfileBranchMispredictions,
+    ProfileStoreInstructions,
+    ProfileFpInstructions,
+    ProfileIntegerInstructions,
+    Profile2Issue,
+    Profile3Issue,
+    Profile4Issue,
+    ProfileSpecialInstructions,
+    ProfileTotalCycles,
+    ProfileIcacheIssues,
+    ProfileDcacheAccesses,
+    ProfileMemoryBarrierCycles,
+    ProfileLoadLinkedIssues,
+    ProfileMaximum
+} KPROFILE_SOURCE;
+using Func_NtQueryIntervalProfile = NTSTATUS(__fastcall*)(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
+Func_NtQueryIntervalProfile func_NtQueryIntervalProfile = nullptr;
 
 int main()
 {
@@ -14,16 +43,16 @@ int main()
         return -1;
     }
 
-    HMODULE hWin32u = LoadLibraryA("win32u.dll");
-    if (NULL == hWin32u)
+    HMODULE hNtdll = LoadLibraryA("ntdll.dll");
+    if (NULL == hNtdll)
     {
-        LOG("LoadLibraryA win32u.dll failed");
+        LOG("LoadLibraryA failed");
         return -1;
     }
-    *(PVOID*)&fun_NtUserSetGestureConfig = GetProcAddress(hWin32u, "NtUserSetGestureConfig");
-    if (NULL == fun_NtUserSetGestureConfig)
+    func_NtQueryIntervalProfile = (Func_NtQueryIntervalProfile)GetProcAddress(hNtdll, "NtQueryIntervalProfile");
+    if (NULL == func_NtQueryIntervalProfile)
     {
-        LOG("GetProcAddress NtUserSetGestureConfig failed");
+        LOG("GetProcAddress failed");
         return -1;
     }
 
@@ -64,10 +93,10 @@ int main()
         return exit_code;
     }
 
-    cmd_t cmd{};
-    cmd.verification_code = SYSCALL_CODE;
-    cmd.operation = for_test;
-    fun_NtUserSetGestureConfig(&cmd);
+
+    KPROFILE_SOURCE profileSource = ProfileBranchMispredictions;
+    ULONG interval = 0;
+    func_NtQueryIntervalProfile(profileSource, &interval);
 
     return 0;
 }
