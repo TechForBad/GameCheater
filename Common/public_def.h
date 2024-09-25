@@ -6,7 +6,7 @@
 #define DBK_PROCESS_EVENT_NAME L"RichStuff_Process_Event_Name"
 #define DBK_THREAD_EVENT_NAME L"RichStuff_Thread_Event_Name"
 #ifdef _WIN64
-#define CHEAT_ENGINE_PROCESS_NAME "richstuff-x86_64.exe"
+#define CHEAT_ENGINE_PROCESS_NAME "richstuff-x86"
 #define CHEAT_ENGINE_FILE_NAME L"richstuff-x86_64.exe"
 #define DBK_DRIVER_NAME L"richstuffk64.sys"
 #else

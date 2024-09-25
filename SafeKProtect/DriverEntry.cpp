@@ -27,30 +27,29 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING re
 
 	Printf("Enter DriverEntry");
 
-	if (!InitGetProcessNameOffset())
-	{
+    if (!InitGetProcessNameOffset())
+    {
         Printf("Error! InitGetProcessNameOffset failed");
         return STATUS_UNSUCCESSFUL;
-	}
+    }
 
-	ULONG ntModuleSize = 0;
-	PVOID ntModuleBase = mem::GetSystemModuleBase("\\SystemRoot\\system32\\ntoskrnl.exe", &ntModuleSize);
-	if ((NULL == ntModuleBase) || (0 == ntModuleSize))
+	UINT64 fun_NtQueryIntervalProfile = (UINT64)mem::GetSystemBaseModuleExport("\\SystemRoot\\system32\\ntoskrnl.exe", "NtQueryIntervalProfile");
+	if (NULL == fun_NtQueryIntervalProfile)
 	{
-		Printf("Error! GetSystemModuleBase failed");
+		Printf("Error! GetSystemBaseModuleExport failed");
 		return STATUS_UNSUCCESSFUL;
 	}
 
-    UINT64 dataPtr = cleaner::FindPattern((UINT64)ntModuleBase, (UINT64)ntModuleSize, (BYTE*)NT_QWORD_SIG, NT_QWORD_MASK);
+    UINT64 dataPtr = cleaner::FindPattern(fun_NtQueryIntervalProfile, 0x200, (BYTE*)"\xEB\xCC\xEB\xCC\xE8", "x?x?x");
 	if (NULL == dataPtr)
 	{
 		Printf("Error! FindPattern failed");
 		return STATUS_UNSUCCESSFUL;
 	}
-
-    UINT64 refFunc = (UINT64)dataPtr + *(PINT32)((PBYTE)dataPtr + 3) + 7;
-    UINT64 rvaFunc = refFunc - (UINT64)ntModuleBase;
-    Printf("data_ptr 0x%llx, ref_func 0x%llx, rva 0x%llx\n", dataPtr, refFunc, rvaFunc);
+	dataPtr += 4;
+	UINT64 fun_KeQueryIntervalProfile = (UINT64)dataPtr + *(PINT32)((PBYTE)dataPtr + 1) + 5;
+	dataPtr = cleaner::FindPattern(fun_KeQueryIntervalProfile, 0x200, (BYTE*)"\x48\x8B\x05\xCC\xCC\xCC\xCC\xCC\x8D", "xxx?????x");
+	UINT64 refFunc = (UINT64)dataPtr + *(PINT32)((PBYTE)dataPtr + 3) + 7;
 
     *(PVOID*)&origin_HaliQuerySystemInformation = InterlockedExchangePointer((PVOID*)refFunc, (PVOID)fun_HaliQuerySystemInformation);
 

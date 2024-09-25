@@ -4,6 +4,7 @@
 #include <ntifs.h>
 #include <ntddk.h>
 #include <windef.h>
+#include <ntimage.h>
 #include <ntstrsafe.h>
 
 typedef struct PiDDBCacheEntry
@@ -261,3 +262,29 @@ typedef struct _MEMORY_STRUCT
     void* output;
     ULONG magic;
 }MEMORY_STRUCT;
+
+typedef struct _SYSTEM_MODULE_INFORMATION_ENTRY
+{
+    ULONG Unknow1;
+    ULONG Unknow2;
+
+#ifdef _AMD64_
+    ULONG Unknow3;
+    ULONG Unknow4;
+#endif
+
+    PVOID Base;
+    ULONG Size;
+    ULONG Flags;
+    USHORT Index;
+    USHORT NameLength;
+    USHORT LoadCount;
+    USHORT ModuleNameOffset;
+    char ImageName[256];
+}SYSTEM_MODULE_INFORMATION_ENTRY, * PSYSTEM_MODULE_INFORMATION_ENTRY;
+
+typedef struct _SYSTEM_MODULE_INFORMATION
+{
+    ULONG Count;//内核中以加载的模块的个数
+    SYSTEM_MODULE_INFORMATION_ENTRY Module[1];
+}SYSTEM_MODULE_INFORMATION, * PSYSTEM_MODULE_INFORMATION;
