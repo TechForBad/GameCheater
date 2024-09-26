@@ -16,6 +16,12 @@
     <ClInclude Include="common.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="processUtils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="memoryUtils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">
@@ -36,6 +42,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="cleaner.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="processUtils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="memoryUtils.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

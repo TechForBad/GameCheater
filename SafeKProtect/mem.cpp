@@ -131,38 +131,7 @@ bool Hook(void* destination)
     return true;
 }
 
-ULONG64 GetModuleBaseFor64BitProcess(PEPROCESS proc, UNICODE_STRING ustrModuleName)
-{
-    PPEB pPeb = PsGetProcessPeb(proc);
-    if (!pPeb)
-    {
-        return 0;
-    }
 
-    KAPC_STATE state;
-    KeStackAttachProcess(proc, &state);
-
-    PPEB_LDR_DATA pLdr = (PPEB_LDR_DATA)pPeb->Ldr;
-    if (!pLdr)
-    {
-        KeUnstackDetachProcess(&state);
-        return 0;
-    }
-
-    for (PLIST_ENTRY list = (PLIST_ENTRY)pLdr->ModuleListLoadOrder.Flink; list != &pLdr->ModuleListLoadOrder; list = (PLIST_ENTRY)list->Flink)
-    {
-        PLDR_DATA_TABLE_ENTRY pEntry = CONTAINING_RECORD(list, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList);
-        if (RtlCompareUnicodeString(&pEntry->BaseDllName, &ustrModuleName, TRUE) == 0)
-        {
-            ULONG64 baseAddr = (ULONG64)pEntry->DllBase;
-            KeUnstackDetachProcess(&state);
-            return baseAddr;
-        }
-    }
-
-    KeUnstackDetachProcess(&state);
-    return 0;
-}
 
 NTSTATUS FindProcessByName(CHAR* processName, PEPROCESS* proc)
 {

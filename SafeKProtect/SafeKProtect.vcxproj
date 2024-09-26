@@ -124,6 +124,8 @@
     <ClCompile Include="common.cpp" />
     <ClCompile Include="DriverEntry.cpp" />
     <ClCompile Include="mem.cpp" />
+    <ClCompile Include="memoryUtils.cpp" />
+    <ClCompile Include="processUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cleaner.h" />
@@ -131,6 +133,8 @@
     <ClInclude Include="communication.h" />
     <ClInclude Include="imports.h" />
     <ClInclude Include="mem.h" />
+    <ClInclude Include="memoryUtils.h" />
+    <ClInclude Include="processUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

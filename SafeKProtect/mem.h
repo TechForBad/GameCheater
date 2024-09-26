@@ -15,7 +15,7 @@ bool WriteToReadOnlyMemory(void* address, void* buffer, size_t size);
 
 bool Hook(void* destination);
 
-ULONG64 GetModuleBaseFor64BitProcess(PEPROCESS proc, UNICODE_STRING moduleName);
+
 
 NTSTATUS FindProcessByName(CHAR* processName, PEPROCESS* proc);
 
