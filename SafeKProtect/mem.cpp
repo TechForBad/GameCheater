@@ -3,7 +3,7 @@
 namespace mem
 {
 
-PVOID GetSystemModuleBase(const char* moduleName, PULONG moduleSize)
+PVOID GetSystemModuleBase(LPCSTR moduleName, PULONG moduleSize)
 {
     ULONG bytes = 0;
     NTSTATUS ntStatus = ZwQuerySystemInformation(SystemModuleInformation, 0, bytes, &bytes);
@@ -19,14 +19,17 @@ PVOID GetSystemModuleBase(const char* moduleName, PULONG moduleSize)
         return NULL;
     }
 
-    PVOID module_base = 0;
+    PVOID moduleBase = NULL;
     PRTL_PROCESS_MODULE_INFORMATION modules = processModules->Modules;
-    for (ULONG i = 0; i < processModules->NumberOfModules; i++)
+    for (ULONG i = 0; i < processModules->NumberOfModules; ++i)
     {
-        if (0 == strcmp((char*)modules[i].FullPathName, moduleName))
+        if (0 == strcmp((LPCSTR)modules[i].FullPathName, moduleName))
         {
-            module_base = modules[i].ImageBase;
-            *moduleSize = modules[i].ImageSize;
+            moduleBase = modules[i].ImageBase;
+            if (moduleSize)
+            {
+                *moduleSize = modules[i].ImageSize;
+            }
             break;
         }
     }
@@ -35,15 +38,11 @@ PVOID GetSystemModuleBase(const char* moduleName, PULONG moduleSize)
     {
         ExFreePoolWithTag(processModules, 0);
     }
-    if (module_base <= 0)
-    {
-        return NULL;
-    }
 
-    return module_base;
+    return moduleBase;
 }
 
-PVOID GetSystemBaseModuleExport(const char* moduleName, LPCSTR routineName)
+PVOID GetSystemBaseModuleExport(LPCSTR moduleName, LPCSTR exportName)
 {
     ULONG moduleSize = 0;
     PVOID baseModule = mem::GetSystemModuleBase(moduleName, &moduleSize);
@@ -51,7 +50,7 @@ PVOID GetSystemBaseModuleExport(const char* moduleName, LPCSTR routineName)
     {
         return NULL;
     }
-    return RtlFindExportedRoutineByName(baseModule, routineName);
+    return RtlFindExportedRoutineByName(baseModule, exportName);
 }
 
 bool WriteMemory(void* address, void* buffer, size_t size)
