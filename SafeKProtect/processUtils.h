@@ -2,15 +2,19 @@
 
 #include "common.h"
 
-class MemoryUtils
+class ProcessUtils
 {
 private:
-    // 获取64位进程的指定模块基地址
-    PVOID GetModuleBaseFor64BitProcess(PEPROCESS Process, WCHAR* moduleName);
-
-    PVOID GetFunctionAddress(PVOID moduleBase, CHAR* functionName);
-    NTSTATUS GetSSDTAddress();
+    // 鏍规嵁EPROCESS鍜屾ā鍧楀悕鑾峰彇妯″潡鍩哄湴鍧�
+    static PVOID GetModuleBaseFor64BitProcess(PEPROCESS proc, PCWSTR moduleName);
 
 public:
-    static PVOID GetSSDTFunctionAddress(CHAR* functionName);
+    static BOOL InitGetProcessNameOffset(PDRIVER_OBJECT driver_object);
+
+    static VOID GetProcessName(IN PEPROCESS proc, OUT PCHAR procName);
+
+    static NTSTATUS FindPidByName(LPCWSTR processName, PULONG pid);
 };
+
+OB_PREOP_CALLBACK_STATUS OnPreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION Info);
+OB_PREOP_CALLBACK_STATUS OnPreOpenThread(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION Info);

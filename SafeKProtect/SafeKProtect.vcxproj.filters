@@ -7,20 +7,17 @@
     <ClInclude Include="imports.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="mem.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="cleaner.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="common.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="memoryUtils.h">
+      <Filter>MemoryUtils</Filter>
     </ClInclude>
     <ClInclude Include="processUtils.h">
-      <Filter>头文件</Filter>
+      <Filter>ProcessUtils</Filter>
     </ClInclude>
-    <ClInclude Include="memoryUtils.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="common.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="connUtils.h">
+      <Filter>ConnUtils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -30,25 +27,34 @@
     <Filter Include="头文件">
       <UniqueIdentifier>{4e1454ce-4cb2-4fed-b801-d5c8c6d46437}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MemoryUtils">
+      <UniqueIdentifier>{2aac5b3c-0be8-4fc4-a7b8-eb348ab83e47}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ProcessUtils">
+      <UniqueIdentifier>{007c45a4-1771-4d49-a670-8ac912f17cd5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{3519e969-5e7b-4c6a-b44b-4883a27ec2f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ConnUtils">
+      <UniqueIdentifier>{130f4c34-5bbd-4efe-8279-5a857f590220}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DriverEntry.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="common.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="mem.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="cleaner.cpp">
-      <Filter>源文件</Filter>
+    <ClCompile Include="memoryUtils.cpp">
+      <Filter>MemoryUtils</Filter>
     </ClCompile>
     <ClCompile Include="processUtils.cpp">
-      <Filter>源文件</Filter>
+      <Filter>ProcessUtils</Filter>
     </ClCompile>
-    <ClCompile Include="memoryUtils.cpp">
-      <Filter>源文件</Filter>
+    <ClCompile Include="common.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="connUtils.cpp">
+      <Filter>ConnUtils</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
