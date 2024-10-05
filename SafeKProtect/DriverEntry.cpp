@@ -4,22 +4,22 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING re
 {
 	UNREFERENCED_PARAMETER(registryPath);
 
-	Printf("Enter DriverEntry");
+	LOG_INFO("Enter DriverEntry");
 
 	// 初始化进程名偏移
     if (!ProcessUtils::InitGetProcessNameOffset(pDriverObject))
     {
-        Printf("Error! InitGetProcessNameOffset failed");
+        LOG_ERROR("InitGetProcessNameOffset failed");
         return STATUS_UNSUCCESSFUL;
     }
 
     // 初始化连接
     if (!ConnUtils::InitConnection())
     {
-        Printf("Error! InitConnection failed");
+        LOG_ERROR("InitConnection failed");
         return STATUS_UNSUCCESSFUL;
     }
 
-	Printf("Leave DriverEntry");
+    LOG_INFO("Leave DriverEntry");
 	return STATUS_SUCCESS;
 }

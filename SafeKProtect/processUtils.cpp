@@ -31,6 +31,7 @@ PVOID ProcessUtils::GetModuleBaseFor64BitProcess(PEPROCESS proc, PCWSTR moduleNa
     PPEB pPeb = PsGetProcessPeb(proc);
     if (NULL == pPeb)
     {
+        LOG_ERROR("PsGetProcessPeb failed");
         return NULL;
     }
 
@@ -47,6 +48,7 @@ PVOID ProcessUtils::GetModuleBaseFor64BitProcess(PEPROCESS proc, PCWSTR moduleNa
     PPEB_LDR_DATA pLdr = (PPEB_LDR_DATA)pPeb->Ldr;
     if (NULL == pLdr)
     {
+        LOG_ERROR("pLdr is NULL");
         KeUnstackDetachProcess(&state);
         ObDereferenceObject(proc);
         return NULL;
@@ -77,12 +79,14 @@ NTSTATUS ProcessUtils::FindPidByName(LPCWSTR processName, PULONG pid)
 {
     if ((NULL == processName) || (NULL == pid))
     {
+        LOG_ERROR("Param error");
         return STATUS_INVALID_PARAMETER;
     }
 
     PSYSTEM_PROCESS_INFO pProcessInfo = (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessInformation);
     if (NULL == pProcessInfo)
     {
+        LOG_ERROR("GetSystemInformation failed");
         return STATUS_UNSUCCESSFUL;
     }
 

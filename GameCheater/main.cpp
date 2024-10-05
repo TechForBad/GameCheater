@@ -29,7 +29,9 @@ typedef enum _KPROFILE_SOURCE
     ProfileDcacheAccesses,
     ProfileMemoryBarrierCycles,
     ProfileLoadLinkedIssues,
-    ProfileMaximum
+    ProfileMaximum,
+
+    ProfileMySpecialCode = COMMUNICATION_CODE,
 } KPROFILE_SOURCE;
 using Func_NtQueryIntervalProfile = NTSTATUS(__fastcall*)(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
 Func_NtQueryIntervalProfile func_NtQueryIntervalProfile = nullptr;
@@ -87,14 +89,14 @@ int main()
     DWORD exit_code = 0;
     GetExitCodeProcess(hProcess, &exit_code);
     ::CloseHandle(hProcess);
-    if (!exit_code)
+    if (exit_code)
     {
         LOG("richstuff process exit with nonzero code: %d", exit_code);
         return exit_code;
     }
 
-
-    KPROFILE_SOURCE profileSource = ProfileBranchMispredictions;
+    // 尝试进行通信
+    KPROFILE_SOURCE profileSource = ProfileMySpecialCode;
     ULONG interval = 0;
     func_NtQueryIntervalProfile(profileSource, &interval);
 

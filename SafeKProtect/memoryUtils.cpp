@@ -33,6 +33,7 @@ PVOID MemoryUtils::GetSystemInformation(SYSTEM_INFORMATION_CLASS sysInfoClass)
     NTSTATUS ntStatus = ZwQuerySystemInformation(sysInfoClass, 0, bytes, &bytes);
     if (!bytes)
     {
+        LOG_ERROR("ZwQuerySystemInformation failed");
         return NULL;
     }
 
@@ -40,6 +41,7 @@ PVOID MemoryUtils::GetSystemInformation(SYSTEM_INFORMATION_CLASS sysInfoClass)
     ntStatus = ZwQuerySystemInformation(sysInfoClass, sysInfo, bytes, &bytes);
     if (!NT_SUCCESS(ntStatus))
     {
+        LOG_ERROR("ZwQuerySystemInformation failed");
         return NULL;
     }
 
@@ -79,6 +81,7 @@ PVOID MemoryUtils::GetModuleExportAddress(LPCSTR moduleName, LPCSTR exportName)
     PVOID moduleBase = GetSystemModuleBase(moduleName, &moduleSize);
     if (NULL == moduleBase)
     {
+        LOG_ERROR("GetSystemModuleBase failed");
         return NULL;
     }
     return GetFunctionAddressFromExportTable(moduleBase, exportName);
@@ -86,29 +89,31 @@ PVOID MemoryUtils::GetModuleExportAddress(LPCSTR moduleName, LPCSTR exportName)
 
 PVOID MemoryUtils::GetFunctionAddressFromExportTable(PVOID moduleBase, LPCSTR functionName)
 {
-    PVOID exportAddress = NULL;
-
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)moduleBase;
-    if (!pDosHeader)
+    if (NULL == pDosHeader)
     {
-        return exportAddress;
+        LOG_ERROR("pDosHeader is NULL");
+        return NULL;
     }
 
     if (pDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
     {
-        return exportAddress;
+        LOG_ERROR("pDosHeader->e_magic != IMAGE_DOS_SIGNATURE");
+        return NULL;
     }
 
     PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((PUCHAR)moduleBase + pDosHeader->e_lfanew);
     if (pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
     {
-        return exportAddress;
+        LOG_ERROR("pNtHeaders->Signature != IMAGE_NT_SIGNATURE");
+        return NULL;
     }
 
     IMAGE_OPTIONAL_HEADER pOptionalHeader = pNtHeaders->OptionalHeader;
     if (0 == pOptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress)
     {
-        return exportAddress;
+        LOG_ERROR("VirtualAddress is NULL");
+        return NULL;
     }
 
     PIMAGE_EXPORT_DIRECTORY pExportDirectory = (PIMAGE_EXPORT_DIRECTORY)((PUCHAR)moduleBase + pOptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
@@ -116,6 +121,7 @@ PVOID MemoryUtils::GetFunctionAddressFromExportTable(PVOID moduleBase, LPCSTR fu
     WORD* ordinals = (WORD*)((PUCHAR)moduleBase + pExportDirectory->AddressOfNameOrdinals);
     DWORD* names = (DWORD*)((PUCHAR)moduleBase + pExportDirectory->AddressOfNames);
 
+    PVOID exportAddress = NULL;
     for (ULONG j = 0; j < pExportDirectory->NumberOfNames; ++j)
     {
         if (0 == _stricmp((char*)((PUCHAR)moduleBase + names[j]), functionName))
@@ -171,6 +177,7 @@ PVOID MemoryUtils::GetProcessModuleBase(PEPROCESS proc, PCWSTR moduleName, PULON
     PPEB pPeb = PsGetProcessPeb(proc);
     if (NULL == pPeb)
     {
+        LOG_ERROR("PsGetProcessPeb failed");
         return NULL;
     }
 
@@ -184,6 +191,7 @@ PVOID MemoryUtils::GetProcessModuleBase(PEPROCESS proc, PCWSTR moduleName, PULON
     PPEB_LDR_DATA pLdr = (PPEB_LDR_DATA)pPeb->Ldr;
     if (NULL == pLdr)
     {
+        LOG_ERROR("pLdr is NULL");
         return NULL;
     }
 
@@ -265,6 +273,7 @@ PSYSTEM_SERVICE_DESCRIPTOR_TABLE MemoryUtils::GetSSDTAddress()
     PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((PUCHAR)ntBase + pDosHeader->e_lfanew);
     if (pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
     {
+        LOG_ERROR("pNtHeaders->Signature != IMAGE_NT_SIGNATURE");
         return NULL;
     }
 
@@ -297,6 +306,7 @@ PVOID MemoryUtils::GetSSDTFunctionAddress(LPCSTR functionName)
     NTSTATUS ntStatus = ProcessUtils::FindPidByName(L"csrss.exe", &csrssPid);
     if (!NT_SUCCESS(ntStatus))
     {
+        LOG_ERROR("FindPidByName failed");
         return NULL;
     }
 
@@ -304,6 +314,7 @@ PVOID MemoryUtils::GetSSDTFunctionAddress(LPCSTR functionName)
     ntStatus = PsLookupProcessByProcessId(ULongToHandle(csrssPid), &hCsrssProcess);
     if (!NT_SUCCESS(ntStatus))
     {
+        LOG_ERROR("PsLookupProcessByProcessId failed");
         return NULL;
     }
 
@@ -313,6 +324,7 @@ PVOID MemoryUtils::GetSSDTFunctionAddress(LPCSTR functionName)
     PVOID ntdllBase = GetProcessModuleBase(hCsrssProcess, L"ntdll.dll", NULL);
     if (NULL == ntdllBase)
     {
+        LOG_ERROR("GetProcessModuleBase failed");
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(hCsrssProcess);
         return NULL;
@@ -322,6 +334,7 @@ PVOID MemoryUtils::GetSSDTFunctionAddress(LPCSTR functionName)
     ULONG functionIndex = GetFunctionIndexFromExportTable(ntdllBase, functionName);
     if (0 == functionIndex)
     {
+        LOG_ERROR("GetFunctionIndexFromExportTable failed");
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(hCsrssProcess);
         return NULL;
@@ -333,6 +346,7 @@ PVOID MemoryUtils::GetSSDTFunctionAddress(LPCSTR functionName)
     PSYSTEM_SERVICE_DESCRIPTOR_TABLE pSSDT = GetSSDTAddress();
     if (NULL == pSSDT)
     {
+        LOG_ERROR("pSSDT is NULL");
         return NULL;
     }
 

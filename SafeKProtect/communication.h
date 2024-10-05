@@ -1,6 +1,6 @@
 #pragma once
 
-#define SYSCALL_CODE 0xDEADBEEF
+#define COMMUNICATION_CODE 0xDEADBEEF
 
 enum Operation : int
 {
