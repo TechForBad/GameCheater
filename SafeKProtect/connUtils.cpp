@@ -1,31 +1,50 @@
 #include "connUtils.h"
 
-typedef struct _HAL_PROFILE_SOURCE_INFORMATION
-{
-    KPROFILE_SOURCE Source;
-    BOOLEAN Supported;
-    ULONG Interval;
-} HAL_PROFILE_SOURCE_INFORMATION, * PHAL_PROFILE_SOURCE_INFORMATION;
+typedef unsigned char   uint8;
+#define _BYTE  uint8
+#define BYTEn(x, n)   (*((_BYTE*)&(x)+n))
+#define BYTE4(x)   BYTEn(x,  4)
+
+typedef unsigned int    uint32;
+#define _DWORD uint32
+#define DWORDn(x, n)  (*((_DWORD*)&(x)+n))
+#define DWORD2(x)   DWORDn(x,  2)
+
+static FuncConnectionCallback g_connectionCallback = NULL;
 
 __int64(__fastcall* origin_HaliQuerySystemInformation)(unsigned int a1, unsigned int a2, LARGE_INTEGER* a3, unsigned int* a4);
 
 __int64 __fastcall fun_HaliQuerySystemInformation(unsigned int a1, unsigned int a2, LARGE_INTEGER* a3, unsigned int* a4)
 {
-    if ((NULL == a3) || (UserMode != ExGetPreviousMode()) || (COMMUNICATION_CODE != a3->QuadPart))
+    if ((NULL == a3) || (a3->LowPart <= ProfileMaximum) || (UserMode != ExGetPreviousMode()))
     {
         return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
     }
 
     CHAR procName[300] = { 0 };
     ProcessUtils::GetProcessName(PsGetCurrentProcess(), procName);
+    if (0 != _stricmp(procName, PROCESS_NAME_IN_EPROCESS_GAME_CHEATER))
+    {
+        return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
+    }
 
-    LOG_INFO("Process Name: %s, a3: 0x%llx, *a3: 0x%llx", procName, (UINT64)a3, a3->QuadPart);
+    ULONG ret = g_connectionCallback(a3->LowPart);
+    BYTE4(a3->QuadPart) = 0x1;
+    DWORD2(a3->QuadPart) = ret;
 
-    return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
+    return 0;
 }
 
-BOOL ConnUtils::InitConnection()
+BOOL ConnUtils::InitConnection(FuncConnectionCallback connectionCallback)
 {
+    if (NULL == connectionCallback)
+    {
+        LOG_ERROR("Param error");
+        return FALSE;
+    }
+
+    g_connectionCallback = connectionCallback;
+
     PVOID fun_NtQueryIntervalProfile = MemoryUtils::GetSSDTFunctionAddress("NtQueryIntervalProfile");
     if (NULL == fun_NtQueryIntervalProfile)
     {

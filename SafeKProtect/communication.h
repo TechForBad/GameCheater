@@ -1,8 +1,12 @@
 #pragma once
 
-#define COMMUNICATION_CODE 0xDEADBEEF
+namespace COMM
+{
 
-enum Operation : int
+constexpr unsigned long MIN_CODE = 0xffff;
+constexpr unsigned long TEST_CODE = 0xDEADBEEF;
+
+enum Operation : unsigned long
 {
     for_test = 0,
     memory_read,
@@ -11,7 +15,7 @@ enum Operation : int
 };
 
 #pragma pack(1)
-struct COMM_MSG
+struct MSG
 {
     Operation oper;
     union
@@ -20,3 +24,5 @@ struct COMM_MSG
     };
 };
 #pragma pack()
+
+}

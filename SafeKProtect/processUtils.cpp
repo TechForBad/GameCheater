@@ -4,7 +4,7 @@ static ULONG g_processNameOffset = 0;
 
 BOOL ProcessUtils::InitGetProcessNameOffset(PDRIVER_OBJECT pDriverObject)
 {
-    const char* curProcName = pDriverObject ? "System" : CHEAT_ENGINE_PROCESS_NAME;
+    const char* curProcName = pDriverObject ? "System" : PROCESS_NAME_IN_EPROCESS_CHEAT_ENGINE;
     size_t curProcNameLen = strlen(curProcName);
 
     PEPROCESS curProc = PsGetCurrentProcess();

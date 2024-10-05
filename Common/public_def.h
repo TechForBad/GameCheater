@@ -5,10 +5,12 @@
 #define DBK_SERVICE_NAME L"RichStuff_Service_Name"
 #define DBK_PROCESS_EVENT_NAME L"RichStuff_Process_Event_Name"
 #define DBK_THREAD_EVENT_NAME L"RichStuff_Thread_Event_Name"
-#define CHEAT_ENGINE_PROCESS_NAME "richstuff-x86"
 #define CHEAT_ENGINE_FILE_NAME L"richstuff-x86_64.exe"
 #define DBK_DRIVER_NAME L"richstuffk64.sys"
 #define MY_DRIVER_NAME L"SafeKProtect.sys"
+
+#define PROCESS_NAME_IN_EPROCESS_CHEAT_ENGINE "richstuff-x86"
+#define PROCESS_NAME_IN_EPROCESS_GAME_CHEATER "GameCheater.ex"
 
 #define LOG_TAG "GameCheater"
 

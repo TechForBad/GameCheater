@@ -30,10 +30,8 @@ typedef enum _KPROFILE_SOURCE
     ProfileMemoryBarrierCycles,
     ProfileLoadLinkedIssues,
     ProfileMaximum,
-
-    ProfileMySpecialCode = COMMUNICATION_CODE,
 } KPROFILE_SOURCE;
-using Func_NtQueryIntervalProfile = NTSTATUS(__fastcall*)(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
+using Func_NtQueryIntervalProfile = NTSTATUS(__fastcall*)(IN ULONG ulCode, OUT PULONG ret);
 Func_NtQueryIntervalProfile func_NtQueryIntervalProfile = nullptr;
 
 int main()
@@ -95,10 +93,15 @@ int main()
         return exit_code;
     }
 
-    // 尝试进行通信
-    KPROFILE_SOURCE profileSource = ProfileMySpecialCode;
-    ULONG interval = 0;
-    func_NtQueryIntervalProfile(profileSource, &interval);
+    // 通信测试
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile(COMM::TEST_CODE, &ulRet);
+    if (COMM::TEST_CODE != ulRet)
+    {
+        LOG("test communication failed, ret code: 0x%x", ulRet);
+        return -1;
+    }
+    LOG("test communication success");
 
     return 0;
 }

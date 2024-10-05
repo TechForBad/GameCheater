@@ -1,5 +1,25 @@
 #include "common.h"
 
+ULONG ConnectionCallback(ULONG ulCode)
+{
+    LOG_INFO("Code: 0x%x", ulCode);
+
+    switch (ulCode)
+    {
+    case COMM::TEST_CODE:
+    {
+        LOG_INFO("[TEST CODE]");
+        return COMM::TEST_CODE;
+    }
+    default:
+    {
+        return 0;
+    }
+    }
+
+    return 0;
+}
+
 extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING registryPath)
 {
 	UNREFERENCED_PARAMETER(registryPath);
@@ -14,7 +34,7 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING re
     }
 
     // 初始化连接
-    if (!ConnUtils::InitConnection())
+    if (!ConnUtils::InitConnection(ConnectionCallback))
     {
         LOG_ERROR("InitConnection failed");
         return STATUS_UNSUCCESSFUL;
