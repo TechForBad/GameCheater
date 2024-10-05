@@ -3,34 +3,6 @@
 
 #include "../Common/common.h"
 
-typedef enum _KPROFILE_SOURCE
-{
-    ProfileTime,
-    ProfileAlignmentFixup,
-    ProfileTotalIssues,
-    ProfilePipelineDry,
-    ProfileLoadInstructions,
-    ProfilePipelineFrozen,
-    ProfileBranchInstructions,
-    ProfileTotalNonissues,
-    ProfileDcacheMisses,
-    ProfileIcacheMisses,
-    ProfileCacheMisses,
-    ProfileBranchMispredictions,
-    ProfileStoreInstructions,
-    ProfileFpInstructions,
-    ProfileIntegerInstructions,
-    Profile2Issue,
-    Profile3Issue,
-    Profile4Issue,
-    ProfileSpecialInstructions,
-    ProfileTotalCycles,
-    ProfileIcacheIssues,
-    ProfileDcacheAccesses,
-    ProfileMemoryBarrierCycles,
-    ProfileLoadLinkedIssues,
-    ProfileMaximum,
-} KPROFILE_SOURCE;
 using Func_NtQueryIntervalProfile = NTSTATUS(__fastcall*)(IN ULONG ulCode, OUT PULONG ret);
 Func_NtQueryIntervalProfile func_NtQueryIntervalProfile = nullptr;
 
@@ -40,19 +12,6 @@ int main()
     if (!tool::AdjustProcessTokenPrivilege())
     {
         LOG("AdjustProcessTokenPrivilege failed");
-        return -1;
-    }
-
-    HMODULE hNtdll = LoadLibraryA("ntdll.dll");
-    if (NULL == hNtdll)
-    {
-        LOG("LoadLibraryA failed");
-        return -1;
-    }
-    func_NtQueryIntervalProfile = (Func_NtQueryIntervalProfile)GetProcAddress(hNtdll, "NtQueryIntervalProfile");
-    if (NULL == func_NtQueryIntervalProfile)
-    {
-        LOG("GetProcAddress failed");
         return -1;
     }
 
@@ -93,6 +52,28 @@ int main()
         return exit_code;
     }
 
+    // 初始化通信
+    HMODULE hNtdll = ::LoadLibraryA("ntdll.dll");
+    if (NULL == hNtdll)
+    {
+        LOG("LoadLibraryA failed");
+        return -1;
+    }
+    func_NtQueryIntervalProfile = (Func_NtQueryIntervalProfile)::GetProcAddress(hNtdll, "NtQueryIntervalProfile");
+    if (NULL == func_NtQueryIntervalProfile)
+    {
+        LOG("GetProcAddress failed");
+        return -1;
+    }
+    PMSG pMsg = (PMSG)malloc(sizeof(MSG));
+    if (NULL == pMsg)
+    {
+        LOG("malloc failed");
+        return -1;
+    }
+    ZeroMemory(pMsg, sizeof(MSG));
+    LOG("Msg Address: 0x%llx Size: %d", (UINT64)pMsg, sizeof(MSG));
+
     // 通信测试
     ULONG ulRet = 0;
     func_NtQueryIntervalProfile(COMM::TEST_CODE, &ulRet);
@@ -101,7 +82,48 @@ int main()
         LOG("test communication failed, ret code: 0x%x", ulRet);
         return -1;
     }
-    LOG("test communication success");
 
+    // 发送MSG地址给驱动
+    uint32_t msg_addr_part_1 = static_cast<uint32_t>(((uint64_t)pMsg & 0x000000000000FFFFi64) >> 00) | COMM::MSG_PART_1;
+    uint32_t msg_addr_part_2 = static_cast<uint32_t>(((uint64_t)pMsg & 0x00000000FFFF0000i64) >> 16) | COMM::MSG_PART_2;
+    uint32_t msg_addr_part_3 = static_cast<uint32_t>(((uint64_t)pMsg & 0x0000FFFF00000000i64) >> 32) | COMM::MSG_PART_3;
+    uint32_t msg_addr_part_4 = static_cast<uint32_t>(((uint64_t)pMsg & 0xFFFF000000000000i64) >> 48) | COMM::MSG_PART_4;
+    func_NtQueryIntervalProfile(msg_addr_part_1, &ulRet);
+    if (msg_addr_part_1 != ulRet)
+    {
+        LOG("send msg addr failed, ret code: 0x%x", ulRet);
+        return -1;
+    }
+    func_NtQueryIntervalProfile(msg_addr_part_2, &ulRet);
+    if (msg_addr_part_2 != ulRet)
+    {
+        LOG("send msg addr failed, ret code: 0x%x", ulRet);
+        return -1;
+    }
+    func_NtQueryIntervalProfile(msg_addr_part_3, &ulRet);
+    if (msg_addr_part_3 != ulRet)
+    {
+        LOG("send msg addr failed, ret code: 0x%x", ulRet);
+        return -1;
+    }
+    func_NtQueryIntervalProfile(msg_addr_part_4, &ulRet);
+    if (msg_addr_part_4 != ulRet)
+    {
+        LOG("send msg addr failed, ret code: 0x%x", ulRet);
+        return -1;
+    }
+
+    // 发送命令
+    func_NtQueryIntervalProfile(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return -1;
+    }
+
+    if (pMsg)
+    {
+        free(pMsg);
+    }
     return 0;
 }

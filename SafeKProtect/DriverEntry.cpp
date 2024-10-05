@@ -2,21 +2,81 @@
 
 ULONG ConnectionCallback(ULONG ulCode)
 {
-    LOG_INFO("Code: 0x%x", ulCode);
+    static COMM::PMSG g_msg = NULL;
 
-    switch (ulCode)
+    if (COMM::TEST_CODE == ulCode)
     {
-    case COMM::TEST_CODE:
-    {
-        LOG_INFO("[TEST CODE]");
+        LOG_INFO("test code: 0x%x", ulCode);
         return COMM::TEST_CODE;
     }
-    default:
+    else if ((ulCode & 0xFFF00000) == COMM::MSG_PART_PREFIX)
     {
-        return 0;
+        static UINT64 temp = 0i64;
+        if ((ulCode & 0xFFFF0000) == COMM::MSG_PART_1)
+        {
+            temp |= (UINT64)(ulCode & 0x0000FFFF) << 00;
+        }
+        else if ((ulCode & 0xFFFF0000) == COMM::MSG_PART_2)
+        {
+            temp |= (UINT64)(ulCode & 0x0000FFFF) << 16;
+        }
+        else if ((ulCode & 0xFFFF0000) == COMM::MSG_PART_3)
+        {
+            temp |= (UINT64)(ulCode & 0x0000FFFF) << 32;
+        }
+        else if ((ulCode & 0xFFFF0000) == COMM::MSG_PART_4)
+        {
+            temp |= (UINT64)(ulCode & 0x0000FFFF) << 48;
+
+            LOG_INFO("msg addr: 0x%llx", temp);
+        }
+
+        g_msg = (COMM::PMSG)temp;
+        return ulCode;
     }
+    else if (COMM::CTRL_CODE == ulCode)
+    {
+        if (NULL == g_msg)
+        {
+            LOG_ERROR("no msg address, control code: 0x%x", ulCode);
+            return 0;
+        }
+
+        COMM::MSG msg;
+
+        __try
+        {
+            // 校验输入
+            ProbeInputType(g_msg, COMM::MSG);
+
+            // 获取输入数据
+            RtlCopyMemory(&msg, g_msg, sizeof(COMM::MSG));
+
+            // 执行操作
+            NTSTATUS ntStatus = OperDispatcher::DispatchOper(&msg);
+            if (!NT_SUCCESS(ntStatus))
+            {
+                LOG_ERROR("DispatchOper failed, control code: 0x%x", ulCode);
+                return 0;
+            }
+
+            // 如果需要输出，则拷贝到输出
+            if (msg.needOutput)
+            {
+                ProbeOutputType(g_msg, COMM::MSG);
+                RtlCopyMemory(g_msg, &msg, sizeof(COMM::MSG));
+            }
+        }
+        __except (1)
+        {
+            LOG_ERROR("Trigger Exception 0x%x, control code: 0x%x", GetExceptionCode(), ulCode);
+            return 0;
+        }
+
+        return ulCode;
     }
 
+    LOG_ERROR("unknown control code: 0x%x", ulCode);
     return 0;
 }
 

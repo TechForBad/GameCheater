@@ -19,6 +19,9 @@
     <ClInclude Include="connUtils.h">
       <Filter>ConnUtils</Filter>
     </ClInclude>
+    <ClInclude Include="OperDispatcher.h">
+      <Filter>OperDispatcher</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">
@@ -39,6 +42,9 @@
     <Filter Include="ConnUtils">
       <UniqueIdentifier>{130f4c34-5bbd-4efe-8279-5a857f590220}</UniqueIdentifier>
     </Filter>
+    <Filter Include="OperDispatcher">
+      <UniqueIdentifier>{c2a40dc3-eb62-4557-ab68-679c0ebabc1b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DriverEntry.cpp">
@@ -55,6 +61,9 @@
     </ClCompile>
     <ClCompile Include="connUtils.cpp">
       <Filter>ConnUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="OperDispatcher.cpp">
+      <Filter>OperDispatcher</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

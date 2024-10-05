@@ -7,6 +7,7 @@
 #include "memoryUtils.h"
 #include "processUtils.h"
 #include "connUtils.h"
+#include "OperDispatcher.h"
 
 // 内存分配标志
 #define MEM_TAG 'RICH'

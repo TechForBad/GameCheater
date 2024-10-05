@@ -124,6 +124,7 @@
     <ClCompile Include="connUtils.cpp" />
     <ClCompile Include="DriverEntry.cpp" />
     <ClCompile Include="memoryUtils.cpp" />
+    <ClCompile Include="OperDispatcher.cpp" />
     <ClCompile Include="processUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -132,6 +133,7 @@
     <ClInclude Include="connUtils.h" />
     <ClInclude Include="imports.h" />
     <ClInclude Include="memoryUtils.h" />
+    <ClInclude Include="OperDispatcher.h" />
     <ClInclude Include="processUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
