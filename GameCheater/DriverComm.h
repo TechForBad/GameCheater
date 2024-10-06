@@ -20,9 +20,17 @@ public:
     // 获取进程模块基地址
     bool GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleName, OUT PVOID* pModuleBase, OUT PULONG moduleSize);
 
+    // 创建APC
+    bool CreateAPC(IN DWORD tid, IN PVOID addrToExe);
+
+    // 为进程分配内存
+    bool AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG allocationType, IN ULONG protect, OUT PVOID* pModuleBase);
+
 private:
     bool LoadDriver(bool normalLoad);
+
     bool BuildDriverComm();
+
     bool TestDriverComm();
 
 private:

@@ -53,15 +53,5 @@ int main()
         return -1;
     }
 
-    LOG("dst: 0x%x 0x%x", pUserDst[0], pUserDst[1]);
-
-    // 写进程内存
-    BYTE userSrc[2] = { 0x00, 0x00 };
-    if (!driverComm.WriteProcessMemory(userSrc, sizeof(userSrc), 512, (PBYTE)pModuleBase))
-    {
-        LOG("WriteProcessMemory failed");
-        return -1;
-    }
-
     return 0;
 }

@@ -36,8 +36,6 @@ ULONG ConnectionCallback(ULONG ulCode)
     }
     else if (COMM::CTRL_CODE == ulCode)
     {
-        DbgBreakPoint();
-
         if (NULL == g_msg)
         {
             LOG_ERROR("no msg address, control code: 0x%x", ulCode);
@@ -69,7 +67,7 @@ ULONG ConnectionCallback(ULONG ulCode)
                 RtlCopyMemory(g_msg, &msg, sizeof(COMM::CMSG));
             }
         }
-        __except (1)
+        __except (EXCEPTION_EXECUTE_HANDLER)
         {
             LOG_ERROR("Trigger Exception 0x%x, control code: 0x%x", GetExceptionCode(), ulCode);
             return 0;

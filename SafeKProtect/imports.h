@@ -167,7 +167,93 @@ extern "C" NTSYSAPI PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(PVOID Base);
 extern "C" NTSTATUS NTAPI MmCopyVirtualMemory(PEPROCESS SourceProcess, PVOID SourceAddress, PEPROCESS TargetProcess, PVOID TargetAddress, SIZE_T BufferSize, KPROCESSOR_MODE PreviousMode, PSIZE_T ReturnSize);
 
 extern "C" __declspec(dllimport)
+NTSTATUS NTAPI ZwQueryInformationProcess(IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass, OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength, OUT PULONG ReturnLength OPTIONAL);
+
+extern "C" __declspec(dllimport)
 NTSTATUS NTAPI NtQueryIntervalProfile(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
+
+typedef
+_Function_class_(KNORMAL_ROUTINE)
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_min_(PASSIVE_LEVEL)
+_IRQL_requires_(PASSIVE_LEVEL)
+_IRQL_requires_same_
+VOID
+KNORMAL_ROUTINE(
+    _In_opt_ PVOID NormalContext,
+    _In_opt_ PVOID SystemArgument1,
+    _In_opt_ PVOID SystemArgument2
+);
+typedef KNORMAL_ROUTINE* PKNORMAL_ROUTINE;
+
+typedef
+_Function_class_(KKERNEL_ROUTINE)
+_IRQL_requires_max_(APC_LEVEL)
+_IRQL_requires_min_(APC_LEVEL)
+_IRQL_requires_(APC_LEVEL)
+_IRQL_requires_same_
+VOID
+KKERNEL_ROUTINE(
+    _In_ struct _KAPC* Apc,
+    _Inout_ PKNORMAL_ROUTINE* NormalRoutine,
+    _Inout_ PVOID* NormalContext,
+    _Inout_ PVOID* SystemArgument1,
+    _Inout_ PVOID* SystemArgument2
+);
+typedef KKERNEL_ROUTINE* PKKERNEL_ROUTINE;
+
+
+typedef
+_Function_class_(KRUNDOWN_ROUTINE)
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_IRQL_requires_min_(PASSIVE_LEVEL)
+_IRQL_requires_(PASSIVE_LEVEL)
+_IRQL_requires_same_
+VOID
+KRUNDOWN_ROUTINE(
+    _In_ struct _KAPC* Apc
+);
+typedef KRUNDOWN_ROUTINE* PKRUNDOWN_ROUTINE;
+
+typedef enum _KAPC_ENVIRONMENT
+{
+    OriginalApcEnvironment,
+    AttachedApcEnvironment,
+    CurrentApcEnvironment,
+    InsertApcEnvironment
+} KAPC_ENVIRONMENT;
+
+extern "C" __declspec(dllimport)
+_IRQL_requires_same_
+_When_(Environment != OriginalApcEnvironment,
+       __drv_reportError("Caution: "
+                         "Using an APC environment other than the original environment can lead to "
+                         "a system bugcheck if the target thread is attached to a process with APCs "
+                         "disabled. APC environments should be used with care."))
+VOID
+KeInitializeApc(
+    _Out_ PRKAPC Apc,
+    _In_ PRKTHREAD Thread,
+    _In_ KAPC_ENVIRONMENT Environment,
+    _In_ PKKERNEL_ROUTINE KernelRoutine,
+    _In_opt_ PKRUNDOWN_ROUTINE RundownRoutine,
+    _In_opt_ PKNORMAL_ROUTINE NormalRoutine,
+    _In_opt_ KPROCESSOR_MODE ProcessorMode,
+    _In_opt_ PVOID NormalContext
+);
+
+extern "C" __declspec(dllimport)
+_Must_inspect_result_
+_IRQL_requires_max_(DISPATCH_LEVEL)
+_IRQL_requires_min_(PASSIVE_LEVEL)
+_IRQL_requires_same_
+BOOLEAN
+KeInsertQueueApc(
+    _Inout_ PRKAPC Apc,
+    _In_opt_ PVOID SystemArgument1,
+    _In_opt_ PVOID SystemArgument2,
+    _In_ KPRIORITY Increment
+);
 
 typedef struct _MEMORY_STRUCT
 {

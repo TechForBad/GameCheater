@@ -34,4 +34,6 @@ public:
 
     // 根据函数名获取SSDT函数地址
     static PVOID GetSSDTFunctionAddress(LPCSTR functionName);
+
+    static BOOLEAN IsAddressSafe(UINT_PTR startAddress);
 };

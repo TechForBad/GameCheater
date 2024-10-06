@@ -354,3 +354,38 @@ PVOID MemoryUtils::GetSSDTFunctionAddress(LPCSTR functionName)
 
     return functionAddress;
 }
+
+BOOLEAN MemoryUtils::IsAddressSafe(UINT_PTR startAddress)
+{
+    // cannonical check. Bits 48 to 63 must match bit 47
+    UINT_PTR toppart = (startAddress >> 47);
+    if (toppart & 1)
+    {
+        // toppart must be 0x1ffff
+        if (toppart != 0x1ffff)
+        {
+            return FALSE;
+        }
+    }
+    else
+    {
+        // toppart must be 0
+        if (toppart != 0)
+        {
+            return FALSE;
+        }
+    }
+
+    UINT_PTR kernelbase = 0x7fffffffffffffffULL;
+    if (startAddress < kernelbase)
+    {
+        return TRUE;
+    }
+    else
+    {
+        PHYSICAL_ADDRESS physical;
+        physical.QuadPart = 0;
+        physical = MmGetPhysicalAddress((PVOID)startAddress);
+        return (physical.QuadPart != 0);
+    }
+}

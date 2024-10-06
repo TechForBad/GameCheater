@@ -26,6 +26,10 @@ enum Operation : unsigned long
     Oper_ProcessMemoryWrite,
     // 获取进程模块基地址
     Oper_ProcessModuleBase,
+    // 创建APC
+    Oper_CreateAPC,
+    // 为进程分配内存
+    Oper_AllocProcessMem,
 };
 
 #pragma pack(1)
@@ -71,6 +75,27 @@ typedef struct _CMSG
             PVOID moduleBase;
             ULONG moduleSize;
         } output_ModuleBase;
+
+        // 创建APC
+        struct Input_CreateAPC
+        {
+            DWORD tid;
+            PVOID addrToExe;
+        } input_CreateAPC;
+
+        // 为进程分配内存
+        struct Input_AllocProcessMem
+        {
+            DWORD pid;
+            SIZE_T memSize;
+            ULONG allocationType;
+            ULONG protect;
+        } input_AllocProcessMem;
+
+        struct Output_AllocProcessMem
+        {
+            PVOID moduleBase;
+        } output_AllocProcessMem;
     };
 } CMSG, * PCMSG;
 #pragma pack()

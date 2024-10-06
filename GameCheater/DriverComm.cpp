@@ -220,3 +220,57 @@ bool DriverComm::GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleName, OUT P
 
     return true;
 }
+
+bool DriverComm::CreateAPC(IN DWORD tid, IN PVOID addrToExe)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_CreateAPC;
+    cmsg_.needOutput = false;
+    cmsg_.input_CreateAPC.tid = tid;
+    cmsg_.input_CreateAPC.addrToExe = addrToExe;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG allocationType, IN ULONG protect, OUT PVOID* pModuleBase)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_AllocProcessMem;
+    cmsg_.needOutput = true;
+    cmsg_.input_AllocProcessMem.pid = pid;
+    cmsg_.input_AllocProcessMem.memSize = memSize;
+    cmsg_.input_AllocProcessMem.allocationType = allocationType;
+    cmsg_.input_AllocProcessMem.protect = protect;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    *pModuleBase = cmsg_.output_AllocProcessMem.moduleBase;
+
+    return true;
+}
