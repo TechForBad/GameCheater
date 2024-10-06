@@ -3,6 +3,9 @@
 namespace COMM
 {
 
+//模块名长度最大值
+#define MAX_MODULE_NAME 100
+
 constexpr unsigned long MIN_CODE = 0xFFFF;
 
 constexpr unsigned long TEST_CODE = 0xDEADBEEF;
@@ -17,27 +20,26 @@ constexpr unsigned long MSG_PART_4 = MSG_PART_PREFIX | 0x40000i32;
 
 enum Operation : unsigned long
 {
-    // 读内存
-    Oper_MemoryRead,
-    // 写内存
-    Oper_MemoryWrite,
-    Oper_ModuleBase,
+    // 读进程内存
+    Oper_ProcessMemoryRead,
+    // 写进程内存
+    Oper_ProcessMemoryWrite,
+    // 获取进程模块基地址
+    Oper_ProcessModuleBase,
 };
 
 #pragma pack(1)
-typedef struct _MSG
+typedef struct _CMSG
 {
     // 操作类型
     Operation oper;
 
-    // 操作结果，为0则成功，为其他值则失败
-    LONG operResult;
-
     // 是否需要输出
-    BOOL needOutput;
+    BOOL needOutput{ false };
 
     union
     {
+        // 读进程内存
         struct Input_MemoryRead
         {
             DWORD pid;
@@ -47,6 +49,7 @@ typedef struct _MSG
             PBYTE pUserDst;
         } input_MemoryRead;
 
+        // 写进程内存
         struct Input_MemoryWrite
         {
             PBYTE pUserSrc;
@@ -55,8 +58,21 @@ typedef struct _MSG
             DWORD pid;
             PBYTE pUserDst;
         } input_MemoryWrite;
+
+        // 获取进程模块基地址
+        struct Input_ModuleBase
+        {
+            DWORD pid;
+            WCHAR moduleName[MAX_MODULE_NAME];
+        } input_ModuleBase;
+
+        struct Output_ModuleBase
+        {
+            PVOID moduleBase;
+            ULONG moduleSize;
+        } output_ModuleBase;
     };
-} MSG, * PMSG;
+} CMSG, * PCMSG;
 #pragma pack()
 
 }

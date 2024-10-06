@@ -53,4 +53,10 @@ bool RunAppWithCommand(const wchar_t* application, const wchar_t* command, HANDL
 bool RunAppWithRedirection(const wchar_t* application, const wchar_t* command,
                            HANDLE input, HANDLE output, HANDLE error, HANDLE* process);
 
+// 加载驱动
+BOOL LoadDriver(const wchar_t* driverName, const wchar_t* driverPath);
+
+// 卸载驱动
+BOOL UnloadDriver(const char* szSvrName);
+
 }

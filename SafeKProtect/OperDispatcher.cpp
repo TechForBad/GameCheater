@@ -1,12 +1,12 @@
 #include "OperDispatcher.h"
 
-NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PMSG pMsg)
+NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
 {
     NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 
     switch (pMsg->oper)
     {
-    case COMM::Oper_MemoryRead:
+    case COMM::Oper_ProcessMemoryRead:
     {
         ntStatus = ReadProcessMemory(
             pMsg->input_MemoryRead.pid,
@@ -16,13 +16,23 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PMSG pMsg)
         );
         break;
     }
-    case COMM::Oper_MemoryWrite:
+    case COMM::Oper_ProcessMemoryWrite:
     {
         ntStatus = WriteProcessMemory(
             pMsg->input_MemoryWrite.pUserSrc,
             pMsg->input_MemoryWrite.writeLen,
             pMsg->input_MemoryWrite.pid,
             pMsg->input_MemoryWrite.pUserDst
+        );
+        break;
+    }
+    case COMM::Oper_ProcessModuleBase:
+    {
+        ntStatus = GetProcessModuleBase(
+            pMsg->input_ModuleBase.pid,
+            pMsg->input_ModuleBase.moduleName,
+            &pMsg->output_ModuleBase.moduleBase,
+            &pMsg->output_ModuleBase.moduleSize
         );
         break;
     }
@@ -36,7 +46,7 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PMSG pMsg)
     return ntStatus;
 }
 
-NTSTATUS OperDispatcher::ReadProcessMemory(DWORD pid, PBYTE pUserSrc, ULONG readLen, PBYTE pUserDst)
+NTSTATUS OperDispatcher::ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst)
 {
     PEPROCESS pEprocess = NULL;
     NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
@@ -46,15 +56,16 @@ NTSTATUS OperDispatcher::ReadProcessMemory(DWORD pid, PBYTE pUserSrc, ULONG read
         return ntStatus;
     }
 
-    KeAttachProcess(pEprocess);
+    KAPC_STATE apcState;
+    KeStackAttachProcess(pEprocess, &apcState);
 
     PMDL pMdl = IoAllocateMdl(pUserSrc, readLen, FALSE, FALSE, NULL);
     if (NULL == pMdl)
     {
         LOG_ERROR("IoAllocateMdl failed");
-        KeDetachProcess();
+        KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
-        return NULL;
+        return STATUS_UNSUCCESSFUL;
     }
 
     __try
@@ -65,9 +76,9 @@ NTSTATUS OperDispatcher::ReadProcessMemory(DWORD pid, PBYTE pUserSrc, ULONG read
     {
         LOG_ERROR("Trigger EXCEPTION_EXECUTE_HANDLER, exception: 0x%x", GetExceptionCode());
         IoFreeMdl(pMdl);
-        KeDetachProcess();
+        KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
-        return NULL;
+        return STATUS_UNSUCCESSFUL;
     }
 
     PVOID pKernelSrc = MmMapLockedPagesSpecifyCache(pMdl, KernelMode, MmCached, NULL, FALSE, NormalPagePriority);
@@ -76,9 +87,9 @@ NTSTATUS OperDispatcher::ReadProcessMemory(DWORD pid, PBYTE pUserSrc, ULONG read
         LOG_ERROR("MmMapLockedPagesSpecifyCache failed");
         MmUnlockPages(pMdl);
         IoFreeMdl(pMdl);
-        KeDetachProcess();
+        KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
-        return NULL;
+        return STATUS_UNSUCCESSFUL;
     }
 
     ntStatus = MmProtectMdlSystemAddress(pMdl, PAGE_READWRITE);
@@ -88,24 +99,38 @@ NTSTATUS OperDispatcher::ReadProcessMemory(DWORD pid, PBYTE pUserSrc, ULONG read
         MmUnmapLockedPages(pKernelSrc, pMdl);
         MmUnlockPages(pMdl);
         IoFreeMdl(pMdl);
-        KeDetachProcess();
+        KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
-        return NULL;
+        return ntStatus;
     }
 
-    KeDetachProcess();
+    KeUnstackDetachProcess(&apcState);
 
-    RtlCopyMemory(pUserDst, pKernelSrc, readLen);
+    // 拷贝数据
+    __try
+    {
+        ProbeOutputBytes(pUserDst, readLen);
+        RtlCopyMemory(pUserDst, pKernelSrc, readLen);
+    }
+    __except (1)
+    {
+        LOG_ERROR("Trigger Exception 0x%x,", GetExceptionCode());
+        MmUnmapLockedPages(pKernelSrc, pMdl);
+        MmUnlockPages(pMdl);
+        IoFreeMdl(pMdl);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
 
     MmUnmapLockedPages(pKernelSrc, pMdl);
     MmUnlockPages(pMdl);
     IoFreeMdl(pMdl);
     ObDereferenceObject(pEprocess);
 
-    return ntStatus;
+    return STATUS_SUCCESS;
 }
 
-NTSTATUS OperDispatcher::WriteProcessMemory(PBYTE pUserSrc, ULONG writeLen, DWORD pid, PBYTE pUserDst)
+NTSTATUS OperDispatcher::WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst)
 {
     PEPROCESS pEprocess = NULL;
     NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
@@ -115,15 +140,16 @@ NTSTATUS OperDispatcher::WriteProcessMemory(PBYTE pUserSrc, ULONG writeLen, DWOR
         return ntStatus;
     }
 
-    KeAttachProcess(pEprocess);
+    KAPC_STATE apcState;
+    KeStackAttachProcess(pEprocess, &apcState);
 
     PMDL pMdl = IoAllocateMdl(pUserDst, writeLen, FALSE, FALSE, NULL);
     if (NULL == pMdl)
     {
         LOG_ERROR("IoAllocateMdl failed");
-        KeDetachProcess();
+        KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
-        return NULL;
+        return STATUS_UNSUCCESSFUL;
     }
 
     __try
@@ -134,9 +160,9 @@ NTSTATUS OperDispatcher::WriteProcessMemory(PBYTE pUserSrc, ULONG writeLen, DWOR
     {
         LOG_ERROR("Trigger EXCEPTION_EXECUTE_HANDLER, exception: 0x%x", GetExceptionCode());
         IoFreeMdl(pMdl);
-        KeDetachProcess();
+        KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
-        return NULL;
+        return STATUS_UNSUCCESSFUL;
     }
 
     PVOID pKernelDst = MmMapLockedPagesSpecifyCache(pMdl, KernelMode, MmCached, NULL, FALSE, NormalPagePriority);
@@ -145,9 +171,9 @@ NTSTATUS OperDispatcher::WriteProcessMemory(PBYTE pUserSrc, ULONG writeLen, DWOR
         LOG_ERROR("MmMapLockedPagesSpecifyCache failed");
         MmUnlockPages(pMdl);
         IoFreeMdl(pMdl);
-        KeDetachProcess();
+        KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
-        return NULL;
+        return STATUS_UNSUCCESSFUL;
     }
 
     ntStatus = MmProtectMdlSystemAddress(pMdl, PAGE_READWRITE);
@@ -157,19 +183,54 @@ NTSTATUS OperDispatcher::WriteProcessMemory(PBYTE pUserSrc, ULONG writeLen, DWOR
         MmUnmapLockedPages(pKernelDst, pMdl);
         MmUnlockPages(pMdl);
         IoFreeMdl(pMdl);
-        KeDetachProcess();
+        KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
-        return NULL;
+        return ntStatus;
     }
 
-    KeDetachProcess();
+    KeUnstackDetachProcess(&apcState);
 
-    RtlCopyMemory(pUserSrc, pKernelDst, writeLen);
+    // 拷贝数据
+    __try
+    {
+        ProbeOutputBytes(pKernelDst, writeLen);
+        RtlCopyMemory(pKernelDst, pUserSrc, writeLen);
+    }
+    __except (1)
+    {
+        LOG_ERROR("Trigger Exception 0x%x,", GetExceptionCode());
+        MmUnmapLockedPages(pKernelDst, pMdl);
+        MmUnlockPages(pMdl);
+        IoFreeMdl(pMdl);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
 
     MmUnmapLockedPages(pKernelDst, pMdl);
     MmUnlockPages(pMdl);
     IoFreeMdl(pMdl);
     ObDereferenceObject(pEprocess);
 
-    return ntStatus;
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS OperDispatcher::GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleName, OUT PVOID* pModuleBase, OUT PULONG moduleSize)
+{
+    PEPROCESS pEprocess = NULL;
+    NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("PsLookupProcessByProcessId failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+
+    KAPC_STATE apcState;
+    KeStackAttachProcess(pEprocess, &apcState);
+
+    *pModuleBase = MemoryUtils::GetProcessModuleBase(pEprocess, moduleName, moduleSize);
+
+    KeUnstackDetachProcess(&apcState);
+    ObDereferenceObject(pEprocess);
+
+    return STATUS_SUCCESS;
 }

@@ -8,6 +8,7 @@
 #define CHEAT_ENGINE_FILE_NAME L"richstuff-x86_64.exe"
 #define DBK_DRIVER_NAME L"richstuffk64.sys"
 #define MY_DRIVER_NAME L"SafeKProtect.sys"
+#define MY_DRIVER_PATH L".\\SafeKProtect.sys"
 
 #define PROCESS_NAME_IN_EPROCESS_CHEAT_ENGINE "richstuff-x86"
 #define PROCESS_NAME_IN_EPROCESS_GAME_CHEATER "GameCheater.ex"

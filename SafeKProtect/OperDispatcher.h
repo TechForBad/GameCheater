@@ -5,10 +5,12 @@
 class OperDispatcher
 {
 public:
-    static NTSTATUS DispatchOper(IN OUT COMM::PMSG pMsg);
+    static NTSTATUS DispatchOper(IN OUT COMM::PCMSG pMsg);
 
 private:
-    static NTSTATUS ReadProcessMemory(DWORD pid, PBYTE src, ULONG readLen, PBYTE dst);
+    static NTSTATUS ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);
 
-    static NTSTATUS WriteProcessMemory(PBYTE src, ULONG writeLen, DWORD pid, PBYTE dst);
+    static NTSTATUS WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst);
+
+    static NTSTATUS GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleName, OUT PVOID* pModuleBase, OUT PULONG moduleSize);
 };

@@ -2,7 +2,7 @@
 
 ULONG ConnectionCallback(ULONG ulCode)
 {
-    static COMM::PMSG g_msg = NULL;
+    static COMM::PCMSG g_msg = NULL;
 
     if (COMM::TEST_CODE == ulCode)
     {
@@ -31,26 +31,28 @@ ULONG ConnectionCallback(ULONG ulCode)
             LOG_INFO("msg addr: 0x%llx", temp);
         }
 
-        g_msg = (COMM::PMSG)temp;
+        g_msg = (COMM::PCMSG)temp;
         return ulCode;
     }
     else if (COMM::CTRL_CODE == ulCode)
     {
+        DbgBreakPoint();
+
         if (NULL == g_msg)
         {
             LOG_ERROR("no msg address, control code: 0x%x", ulCode);
             return 0;
         }
 
-        COMM::MSG msg;
+        COMM::CMSG msg;
 
         __try
         {
             // 校验输入
-            ProbeInputType(g_msg, COMM::MSG);
+            ProbeInputType(g_msg, COMM::CMSG);
 
             // 获取输入数据
-            RtlCopyMemory(&msg, g_msg, sizeof(COMM::MSG));
+            RtlCopyMemory(&msg, g_msg, sizeof(COMM::CMSG));
 
             // 执行操作
             NTSTATUS ntStatus = OperDispatcher::DispatchOper(&msg);
@@ -63,8 +65,8 @@ ULONG ConnectionCallback(ULONG ulCode)
             // 如果需要输出，则拷贝到输出
             if (msg.needOutput)
             {
-                ProbeOutputType(g_msg, COMM::MSG);
-                RtlCopyMemory(g_msg, &msg, sizeof(COMM::MSG));
+                ProbeOutputType(g_msg, COMM::CMSG);
+                RtlCopyMemory(g_msg, &msg, sizeof(COMM::CMSG));
             }
         }
         __except (1)
