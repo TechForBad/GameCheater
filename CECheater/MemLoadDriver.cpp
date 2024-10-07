@@ -1,102 +1,5 @@
 #include "MemLoadDriver.h"
 
-#include <dbghelp.h>
-
-#pragma comment(lib, "Dbghelp.lib")
-
-#define CONVERT_RVA(base, offset) ((PVOID)((PUCHAR)(base) + (ULONG)(offset)))
-
-// 加载文件到内存
-PVOID LoadFileToMemory(const wchar_t* filePath, size_t& fileBufferLen)
-{
-    HANDLE hFile = CreateFile(
-        filePath,               // 文件路径
-        GENERIC_READ,           // 访问权限：只读
-        0,                      // 共享模式：该文件不能被其他程序访问
-        NULL,                   // 安全属性
-        OPEN_EXISTING,          // 打开方式：已存在的文件
-        FILE_ATTRIBUTE_NORMAL,  // 文件属性
-        NULL                    // 模板文件句柄
-    );
-    if (INVALID_HANDLE_VALUE == hFile) {
-        LOG("CreateFile failed");
-        return NULL;
-    }
-
-    DWORD fileSize = GetFileSize(hFile, NULL);
-    if (INVALID_FILE_SIZE == fileSize)
-    {
-        LOG("GetFileSize failed");
-        CloseHandle(hFile);
-        return NULL;
-    }
-
-    PVOID pFileBuffer = malloc(fileSize);
-    if (NULL == pFileBuffer)
-    {
-        LOG("malloc failed");
-        CloseHandle(hFile);
-        return NULL;
-    }
-
-    DWORD readedSize = 0;
-    if (!ReadFile(hFile, pFileBuffer, fileSize, &readedSize, NULL) || fileSize != readedSize)
-    {
-        LOG("ReadFile failed");
-        free(pFileBuffer);
-        CloseHandle(hFile);
-        return NULL;
-    }
-
-    fileBufferLen = fileSize;
-
-    CloseHandle(hFile);
-    return pFileBuffer;
-}
-
-// 修复重定位表
-bool FixRelocation(PVOID pImageBuffer, PVOID pBaseAddress)
-{
-    PIMAGE_NT_HEADERS pImageNtHeaders = ImageNtHeader(pImageBuffer);
-    if (NULL == pImageNtHeaders)
-    {
-        LOG("RtlImageNtHeader failed");
-        return false;
-    }
-    ULONG_PTR llDelta = (ULONG_PTR)pBaseAddress - pImageNtHeaders->OptionalHeader.ImageBase;
-    PIMAGE_BASE_RELOCATION pImageBaseRelocation = (PIMAGE_BASE_RELOCATION)CONVERT_RVA(pImageBuffer, pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
-    ULONG size = pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
-    for (ULONG i = 0; i < size; i += pImageBaseRelocation->SizeOfBlock, pImageBaseRelocation = (PIMAGE_BASE_RELOCATION)((ULONG_PTR)pImageBaseRelocation + pImageBaseRelocation->SizeOfBlock))
-    {
-        for (PUSHORT chains = (PUSHORT)((ULONG_PTR)pImageBaseRelocation + sizeof(IMAGE_BASE_RELOCATION)); chains < (PUSHORT)((ULONG_PTR)pImageBaseRelocation + pImageBaseRelocation->SizeOfBlock); ++chains)
-        {
-            switch (*chains >> 12)
-            {
-            case IMAGE_REL_BASED_ABSOLUTE:
-            {
-                break;
-            }
-            case IMAGE_REL_BASED_HIGHLOW:
-            {
-                *(PULONG)CONVERT_RVA(pImageBuffer, pImageBaseRelocation->VirtualAddress + (*chains & 0x0fff)) += (ULONG)llDelta;
-                break;
-            }
-            case IMAGE_REL_BASED_DIR64:
-            {
-                *(PULONG_PTR)CONVERT_RVA(pImageBuffer, pImageBaseRelocation->VirtualAddress + (*chains & 0x0fff)) += llDelta;
-                break;
-            }
-            default:
-            {
-                LOG("unknown type");
-                return false;
-            }
-            }
-        }
-    }
-    return true;
-}
-
 // 通过驱动的导出函数名获取函数地址
 PVOID GetDriverExportFuncByName(PVOID pImageAddr, const char* exportFuncName)
 {
@@ -492,7 +395,7 @@ bool DBK_LoadMyDriver(LoadType loadType, const wchar_t* driverFilePath, const wc
     {
         // 构造映像内存Image
         // 1.将文件映射到内存pFileBuffer，文件大小为fileBufferLen，映像大小为imageSize
-        pFileBuffer = LoadFileToMemory(driverFilePath, fileBufferLen);
+        pFileBuffer = tool::LoadFileToMemory(driverFilePath, fileBufferLen);
         if (NULL == pFileBuffer || 0 == fileBufferLen)
         {
             LOG("LoadFileToMemory failed");
@@ -531,7 +434,7 @@ bool DBK_LoadMyDriver(LoadType loadType, const wchar_t* driverFilePath, const wc
             memcpy((PCHAR)pUserImage + pImageSectionHeader[i].VirtualAddress, (PCHAR)pFileBuffer + pImageSectionHeader[i].PointerToRawData, pImageSectionHeader[i].SizeOfRawData);
         }
         // 5.进行重定位
-        if (!FixRelocation(pUserImage, pKernelImage))
+        if (!tool::FixRelocation(pUserImage, pKernelImage))
         {
             LOG("FixRelocation failed");
             result = false;
@@ -643,7 +546,7 @@ bool DBK_LoadMyDriver(LoadType loadType, const wchar_t* driverFilePath, const wc
             break;
         }
         LOG("Execute Kernel Shellcode End");
-    } while (0);
+    } while (false);
 
     if (pUserShellcode)
     {

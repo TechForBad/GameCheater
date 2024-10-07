@@ -55,6 +55,34 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
         );
         break;
     }
+    case COMM::Oper_SuspendTargetThread:
+    {
+        ntStatus = SuspendTargetThread(
+            pMsg->input_SuspendTargetThread.tid
+        );
+        break;
+    }
+    case COMM::Oper_ResumeTargetThread:
+    {
+        ntStatus = ResumeTargetThread(
+            pMsg->input_ResumeTargetThread.tid
+        );
+        break;
+    }
+    case COMM::Oper_SuspendTargetProcess:
+    {
+        ntStatus = SuspendTargetProcess(
+            pMsg->input_SuspendTargetProcess.pid
+        );
+        break;
+    }
+    case COMM::Oper_ResumeTargetProcess:
+    {
+        ntStatus = ResumeTargetProcess(
+            pMsg->input_ResumeTargetProcess.pid
+        );
+        break;
+    }
     default:
     {
         LOG_ERROR("Unknown OperCode: 0x%x", pMsg->oper);
@@ -199,8 +227,6 @@ NTSTATUS OperDispatcher::WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen
         return ntStatus;
     }
 
-    DbgBreakPoint();
-
     KAPC_STATE apcState;
     KeStackAttachProcess(pEprocess, &apcState);
 
@@ -323,7 +349,7 @@ static void nothing(PVOID arg1, PVOID arg2, PVOID arg3)
 NTSTATUS OperDispatcher::CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe)
 {
     PETHREAD pEthread = NULL;
-    NTSTATUS ntStatus = PsLookupThreadByThreadId((HANDLE)tid, &pEthread);
+    NTSTATUS ntStatus = PsLookupThreadByThreadId(ULongToHandle(tid), &pEthread);
     if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("PsLookupThreadByThreadId failed, ntStatus: 0x%x", ntStatus);
@@ -384,4 +410,24 @@ NTSTATUS OperDispatcher::AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULO
     *pModuleBase = moduleBase;
 
     return STATUS_SUCCESS;
+}
+
+NTSTATUS OperDispatcher::SuspendTargetThread(IN DWORD tid)
+{
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS OperDispatcher::ResumeTargetThread(IN DWORD tid)
+{
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS OperDispatcher::SuspendTargetProcess(IN DWORD pid)
+{
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS OperDispatcher::ResumeTargetProcess(IN DWORD pid)
+{
+    return STATUS_UNSUCCESSFUL;
 }

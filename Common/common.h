@@ -6,11 +6,18 @@
 #include <assert.h>
 #include <iostream>
 #include <filesystem>
+#include <dbghelp.h>
+
+#pragma warning(disable: 4996)
+
+#pragma comment(lib, "Dbghelp.lib")
 
 #include "public_def.h"
 #include "../SafeKProtect/communication.h"
+#include "DriverComm.h"
+#include "InjectDll.h"
 
-#pragma warning(disable: 4996)
+#define CONVERT_RVA(base, offset) ((PVOID)((PUCHAR)(base) + (ULONG)(offset)))
 
 namespace tool
 {
@@ -58,5 +65,14 @@ BOOL LoadDriver(const wchar_t* driverName, const wchar_t* driverPath);
 
 // 卸载驱动
 BOOL UnloadDriver(const char* szSvrName);
+
+// 根据进程名获取进程号
+bool GetProcessId(LPCWSTR processName, PDWORD pid);
+
+// 加载文件到内存
+PVOID LoadFileToMemory(const wchar_t* filePath, size_t& fileBufferLen);
+
+// 按照指定的基地址修复重定向
+bool FixRelocation(PVOID pImageBuffer, PVOID pBaseAddress);
 
 }

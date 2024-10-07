@@ -17,4 +17,16 @@ private:
     static NTSTATUS CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe);
 
     static NTSTATUS AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG allocationType, IN ULONG protect, OUT PVOID* pModuleBase);
+
+    // 挂起线程
+    static NTSTATUS SuspendTargetThread(IN DWORD tid);
+
+    // 恢复线程
+    static NTSTATUS ResumeTargetThread(IN DWORD tid);
+
+    // 挂起进程
+    static NTSTATUS SuspendTargetProcess(IN DWORD pid);
+
+    // 恢复进程
+    static NTSTATUS ResumeTargetProcess(IN DWORD pid);
 };

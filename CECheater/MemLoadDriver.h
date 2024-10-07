@@ -1,4 +1,5 @@
 #pragma once
+
 #include "DBKControl.h"
 
 enum LoadType

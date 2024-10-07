@@ -2,7 +2,6 @@
 #include <stdio.h>
 
 #include "../Common/common.h"
-#include "DriverComm.h"
 
 int main()
 {
@@ -22,36 +21,23 @@ int main()
     }
 
     // 初始化驱动通信
-    DriverComm driverComm;
-    if (!driverComm.Init())
+    DriverComm* pDriverComm = DriverComm::GetInstance();
+    if (!pDriverComm->Init())
     {
         LOG("Init failed");
         return -1;
     }
 
-    // 获取进程号为512的模块sxs.dll的基地址和大小
-    PVOID pModuleBase = NULL;
-    ULONG moduleSize = 0;
-    if (!driverComm.GetProcessModuleBase(512, L"sxs.dll", &pModuleBase, &moduleSize))
+    // 获取dwm进程号
+    DWORD pid = 0;
+    if (!tool::GetProcessId(L"dwm.exe", &pid))
     {
-        LOG("GetProcessModuleBase failed");
+        LOG("GetProcessId failed");
         return -1;
     }
-    LOG("moduleBase: 0x%llx, moduleSize: 0x%x", pModuleBase, moduleSize);
+    LOG("dwm process id: %d", pid);
 
-    // 读进程内存
-    PBYTE pUserDst = (PBYTE)malloc(moduleSize);
-    if (NULL == pUserDst)
-    {
-        LOG("malloc failed");
-        return -1;
-    }
-    ZeroMemory(pUserDst, moduleSize);
-    if (!driverComm.ReadProcessMemory(512, (PBYTE)pModuleBase, moduleSize, pUserDst))
-    {
-        LOG("ReadProcessMemory failed");
-        return -1;
-    }
+
 
     return 0;
 }

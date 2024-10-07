@@ -30,6 +30,14 @@ enum Operation : unsigned long
     Oper_CreateAPC,
     // 为进程分配内存
     Oper_AllocProcessMem,
+    // 挂起线程
+    Oper_SuspendTargetThread,
+    // 恢复线程
+    Oper_ResumeTargetThread,
+    // 挂起进程
+    Oper_SuspendTargetProcess,
+    // 恢复进程
+    Oper_ResumeTargetProcess,
 };
 
 #pragma pack(1)
@@ -96,6 +104,30 @@ typedef struct _CMSG
         {
             PVOID moduleBase;
         } output_AllocProcessMem;
+
+        // 挂起线程
+        struct Input_SuspendTargetThread
+        {
+            DWORD tid;
+        } input_SuspendTargetThread;
+
+        // 恢复线程
+        struct Input_ResumeTargetThread
+        {
+            DWORD tid;
+        } input_ResumeTargetThread;
+
+        // 挂起进程
+        struct Input_SuspendTargetProcess
+        {
+            DWORD pid;
+        } input_SuspendTargetProcess;
+
+        // 恢复进程
+        struct Input_ResumeTargetProcess
+        {
+            DWORD pid;
+        } input_ResumeTargetProcess;
     };
 } CMSG, * PCMSG;
 #pragma pack()

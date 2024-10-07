@@ -274,3 +274,238 @@ bool DriverComm::AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG alloc
 
     return true;
 }
+
+bool DriverComm::SuspendTargetThread(IN DWORD tid)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_SuspendTargetThread;
+    cmsg_.needOutput = false;
+    cmsg_.input_SuspendTargetThread.tid = tid;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::ResumeTargetThread(IN DWORD tid)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_ResumeTargetThread;
+    cmsg_.needOutput = false;
+    cmsg_.input_ResumeTargetThread.tid = tid;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::SuspendTargetProcess(IN DWORD pid)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_SuspendTargetProcess;
+    cmsg_.needOutput = false;
+    cmsg_.input_SuspendTargetProcess.pid = pid;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::ResumeTargetProcess(IN DWORD pid)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_ResumeTargetProcess;
+    cmsg_.needOutput = false;
+    cmsg_.input_ResumeTargetProcess.pid = pid;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+static bool FixImports(PVOID pImageBuffer, PVOID pBaseAddress)
+{
+    PIMAGE_IMPORT_DESCRIPTOR pImportDescriptor = NULL;
+    PIMAGE_NT_HEADERS pImageNtHeaders = NULL;
+    ULONG ulTemp = 0;
+    ULONG ulSize = 0;
+    LPSTR libName = NULL;
+    PVOID pDriverAddr = NULL;
+    PIMAGE_THUNK_DATA pNames = NULL;
+    PIMAGE_THUNK_DATA pFuncP = NULL;
+    PIMAGE_IMPORT_BY_NAME pIName = NULL;
+    PVOID func = NULL;
+
+    // 得到导入表首地址pImportDescriptor及大小ulSize
+    pImageNtHeaders = ImageNtHeader(pImageBuffer);
+    if (NULL == pImageNtHeaders)
+    {
+        LOG("ImageNtHeader failed");
+        return false;
+    }
+    pImportDescriptor = (PIMAGE_IMPORT_DESCRIPTOR)(pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress + (ULONG_PTR)pImageBuffer);
+    ulSize = pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size;
+
+    // 遍历导入描述符
+    for (; pImportDescriptor->Name; pImportDescriptor++)
+    {
+        libName = (PCHAR)((ULONG_PTR)pImageBuffer + pImportDescriptor->Name);
+        pDriverAddr = GetDriverAddressByName(tool::ConvertCharToWString(libName).c_str());
+        if (pDriverAddr)
+        {
+            pNames = (PIMAGE_THUNK_DATA)CONVERT_RVA(pImageBuffer, pImportDescriptor->OriginalFirstThunk);
+            pFuncP = (PIMAGE_THUNK_DATA)CONVERT_RVA(pImageBuffer, pImportDescriptor->FirstThunk);
+            for (; pNames->u1.ForwarderString; ++pNames, ++pFuncP)
+            {
+                pIName = (PIMAGE_IMPORT_BY_NAME)CONVERT_RVA(pImageBuffer, pNames->u1.AddressOfData);
+                func = GetDriverExportFuncByName(pDriverAddr, pIName->Name);
+                if (func)
+                {
+                    pFuncP->u1.Function = (ULONG_PTR)func;
+                }
+                else
+                {
+                    LOG("GetRoutineByName failed");
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            LOG("GetModuleByName failed, driver name: %s", libName);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool DriverComm::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath, PVOID* pRemoteModuleBase)
+{
+    bool result = true;
+
+    PVOID pFileBuffer = NULL;
+    size_t fileBufferLen = 0;
+
+    PVOID pImageBuffer = NULL;
+    size_t imageBufferLen = 0;
+
+    PVOID remoteModuleBase = NULL;
+
+    do
+    {
+        pFileBuffer = tool::LoadFileToMemory(injectedDllPath, fileBufferLen);
+        if (NULL == pFileBuffer || 0 == fileBufferLen)
+        {
+            LOG("LoadFileToMemory failed");
+            result = false;
+            break;
+        }
+
+        PIMAGE_NT_HEADERS pImageNtHeaders = (PIMAGE_NT_HEADERS)((ULONG_PTR)pFileBuffer + ((PIMAGE_DOS_HEADER)pFileBuffer)->e_lfanew);
+        if (NULL == pImageNtHeaders)
+        {
+            LOG("RtlImageNtHeader failed");
+            result = false;
+            break;
+        }
+
+        imageBufferLen = pImageNtHeaders->OptionalHeader.SizeOfImage;
+        pImageBuffer = malloc(imageBufferLen);
+        if (NULL == pImageBuffer)
+        {
+            LOG("malloc failed");
+            result = false;
+            break;
+        }
+
+        memcpy(pImageBuffer, pFileBuffer, pImageNtHeaders->OptionalHeader.SizeOfHeaders);
+        PIMAGE_SECTION_HEADER pImageSectionHeader = (PIMAGE_SECTION_HEADER)(((PIMAGE_DOS_HEADER)pFileBuffer)->e_lfanew + sizeof(IMAGE_NT_HEADERS) + (ULONG_PTR)pFileBuffer);
+        for (ULONG i = 0; i < pImageNtHeaders->FileHeader.NumberOfSections; ++i)
+        {
+            memcpy((PCHAR)pImageBuffer + pImageSectionHeader[i].VirtualAddress, (PCHAR)pFileBuffer + pImageSectionHeader[i].PointerToRawData, pImageSectionHeader[i].SizeOfRawData);
+        }
+
+        if (!tool::FixRelocation(pImageBuffer, NULL))
+        {
+            LOG("FixRelocation failed");
+            result = false;
+            break;
+        }
+
+        if (!AllocProcessMem(pid, imageBufferLen, MEM_COMMIT, PAGE_EXECUTE_READWRITE, &remoteModuleBase))
+        {
+            LOG("AllocProcessMem failed");
+            result = false;
+            break;
+        }
+
+        if (!FixImports(pImageBuffer, remoteModuleBase))
+        {
+            LOG("FindImports failed");
+            result = false;
+            break;
+        }
+
+
+
+    } while (false);
+
+    if (pImageBuffer)
+    {
+        free(pImageBuffer);
+    }
+    if (pFileBuffer)
+    {
+        free(pFileBuffer);
+    }
+    return result;
+}

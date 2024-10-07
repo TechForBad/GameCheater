@@ -1,12 +1,16 @@
 #pragma once
 
-#include "../Common/common.h"
+#include "common.h"
+#include "../SafeKProtect/communication.h"
 
 class DriverComm
 {
 public:
-    DriverComm() = default;
-    ~DriverComm() = default;
+    static DriverComm* GetInstance()
+    {
+        static DriverComm instance;
+        return &instance;
+    }
 
     // 初始化驱动通信
     bool Init();
@@ -26,11 +30,30 @@ public:
     // 为进程分配内存
     bool AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG allocationType, IN ULONG protect, OUT PVOID* pModuleBase);
 
+    // 挂起线程
+    bool SuspendTargetThread(IN DWORD tid);
+
+    // 恢复线程
+    bool ResumeTargetThread(IN DWORD tid);
+
+    // 挂起进程
+    bool SuspendTargetProcess(IN DWORD pid);
+
+    // 恢复进程
+    bool ResumeTargetProcess(IN DWORD pid);
+
+    // 远程注入dll
+    bool RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath, PVOID* pRemoteModuleBase);
+
+private:
+    DriverComm() = default;
+    ~DriverComm() = default;
+    DriverComm(const DriverComm&) = delete;
+    DriverComm& operator=(const DriverComm&) = delete;
+
 private:
     bool LoadDriver(bool normalLoad);
-
     bool BuildDriverComm();
-
     bool TestDriverComm();
 
 private:

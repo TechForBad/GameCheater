@@ -13,10 +13,22 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="DriverComm">
+      <UniqueIdentifier>{dd2ea4e0-7404-4ce3-8c53-73a1e1f5b4d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="InjectDll">
+      <UniqueIdentifier>{3665117d-4378-48ee-81ce-34bae8ed26a6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="common.cpp">
       <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DriverComm.cpp">
+      <Filter>DriverComm</Filter>
+    </ClCompile>
+    <ClCompile Include="InjectDll.cpp">
+      <Filter>InjectDll</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -25,6 +37,12 @@
     </ClInclude>
     <ClInclude Include="public_def.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DriverComm.h">
+      <Filter>DriverComm</Filter>
+    </ClInclude>
+    <ClInclude Include="InjectDll.h">
+      <Filter>InjectDll</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

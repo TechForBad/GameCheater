@@ -326,4 +326,127 @@ BeforeLeave:
     return bRet;
 }
 
+bool GetProcessId(LPCWSTR processName, PDWORD pid)
+{
+    HANDLE hSnapshot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (INVALID_HANDLE_VALUE == hSnapshot)
+    {
+        LOG("CreateToolhelp32Snapshot failed");
+        return false;
+    }
+
+    PROCESSENTRY32 processEntry = { 0 };
+    processEntry.dwSize = sizeof(PROCESSENTRY32);
+    if (!::Process32First(hSnapshot, &processEntry))
+    {
+        LOG("Process32First failed");
+        ::CloseHandle(hSnapshot);
+        return false;
+    }
+
+    bool bFind = false;
+    do
+    {
+        if (0 == wcscmp(processEntry.szExeFile, processName))
+        {
+            bFind = true;
+            *pid = processEntry.th32ProcessID;
+            break;
+        }
+    } while (::Process32Next(hSnapshot, &processEntry));
+
+    ::CloseHandle(hSnapshot);
+    return bFind;
+}
+
+PVOID LoadFileToMemory(const wchar_t* filePath, size_t& fileBufferLen)
+{
+    HANDLE hFile = CreateFile(
+        filePath,               // 文件路径
+        GENERIC_READ,           // 访问权限：只读
+        0,                      // 共享模式：该文件不能被其他程序访问
+        NULL,                   // 安全属性
+        OPEN_EXISTING,          // 打开方式：已存在的文件
+        FILE_ATTRIBUTE_NORMAL,  // 文件属性
+        NULL                    // 模板文件句柄
+    );
+    if (INVALID_HANDLE_VALUE == hFile)
+    {
+        LOG("CreateFile failed");
+        return NULL;
+    }
+
+    DWORD fileSize = GetFileSize(hFile, NULL);
+    if (INVALID_FILE_SIZE == fileSize)
+    {
+        LOG("GetFileSize failed");
+        CloseHandle(hFile);
+        return NULL;
+    }
+
+    PVOID pFileBuffer = malloc(fileSize);
+    if (NULL == pFileBuffer)
+    {
+        LOG("malloc failed");
+        CloseHandle(hFile);
+        return NULL;
+    }
+
+    DWORD readedSize = 0;
+    if (!ReadFile(hFile, pFileBuffer, fileSize, &readedSize, NULL) || fileSize != readedSize)
+    {
+        LOG("ReadFile failed");
+        free(pFileBuffer);
+        CloseHandle(hFile);
+        return NULL;
+    }
+
+    fileBufferLen = fileSize;
+
+    CloseHandle(hFile);
+    return pFileBuffer;
+}
+
+bool FixRelocation(PVOID pImageBuffer, PVOID pBaseAddress)
+{
+    PIMAGE_NT_HEADERS pImageNtHeaders = ImageNtHeader(pImageBuffer);
+    if (NULL == pImageNtHeaders)
+    {
+        LOG("RtlImageNtHeader failed");
+        return false;
+    }
+    ULONG_PTR llDelta = (ULONG_PTR)pBaseAddress - pImageNtHeaders->OptionalHeader.ImageBase;
+    PIMAGE_BASE_RELOCATION pImageBaseRelocation = (PIMAGE_BASE_RELOCATION)CONVERT_RVA(pImageBuffer, pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
+    ULONG size = pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+    for (ULONG i = 0; i < size; i += pImageBaseRelocation->SizeOfBlock, pImageBaseRelocation = (PIMAGE_BASE_RELOCATION)((ULONG_PTR)pImageBaseRelocation + pImageBaseRelocation->SizeOfBlock))
+    {
+        for (PUSHORT chains = (PUSHORT)((ULONG_PTR)pImageBaseRelocation + sizeof(IMAGE_BASE_RELOCATION)); chains < (PUSHORT)((ULONG_PTR)pImageBaseRelocation + pImageBaseRelocation->SizeOfBlock); ++chains)
+        {
+            switch (*chains >> 12)
+            {
+            case IMAGE_REL_BASED_ABSOLUTE:
+            {
+                break;
+            }
+            case IMAGE_REL_BASED_HIGHLOW:
+            {
+                *(PULONG)CONVERT_RVA(pImageBuffer, pImageBaseRelocation->VirtualAddress + (*chains & 0x0fff)) += (ULONG)llDelta;
+                break;
+            }
+            case IMAGE_REL_BASED_DIR64:
+            {
+                *(PULONG_PTR)CONVERT_RVA(pImageBuffer, pImageBaseRelocation->VirtualAddress + (*chains & 0x0fff)) += llDelta;
+                break;
+            }
+            default:
+            {
+                LOG("unknown type");
+                return false;
+            }
+            }
+        }
+    }
+    return true;
+}
+
 }
