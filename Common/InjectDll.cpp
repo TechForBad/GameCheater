@@ -174,16 +174,12 @@ static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
             break;
         }
 
+        // 复制头和节区头的信息
         // func_MessageBoxA(NULL, NULL, NULL, MB_OK);
         int Headers_Size = pNtHeader->OptionalHeader.SizeOfHeaders;
         int Sections_Size = pNtHeader->FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER);
         int Move_Size = Headers_Size + Sections_Size;
-
-        // 复制头和节区头的信息
-        for (int i = 0; i < Move_Size; ++i)
-        {
-            (((PCHAR)pMemoryAddress)[i]) = (((PCHAR)lpFileData)[i]);
-        }
+        memcpy(pMemoryAddress, lpFileData, Move_Size);
 
         // 复制每个节区
         for (int i = 0; i < pNtHeader->FileHeader.NumberOfSections; ++i)
@@ -198,10 +194,7 @@ static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
             PVOID pSectionAddress = reinterpret_cast<PVOID>((ULONG_PTR)pMemoryAddress + pSectionHeader[i].VirtualAddress);
 
             // 复制段数据到虚拟内存
-            for (int k = 0; k < pSectionHeader[i].SizeOfRawData; ++k)
-            {
-                ((PCHAR)pSectionAddress)[k] = *((PCHAR)lpFileData + pSectionHeader[i].PointerToRawData + k);
-            }
+            memcpy(pSectionAddress, (PCHAR)lpFileData + pSectionHeader[i].PointerToRawData, pSectionHeader[i].SizeOfRawData);
         }
 
         // 修正重定位表
@@ -361,7 +354,7 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 			break;
         }
 
-		// shellcode
+        // shellcode
         WORD* pShellCodeBegin = (WORD*)MemoryLoadLibrary_Begin;
         //----
         // 	while (*pShellCodeBegin != 0xCCCC)
@@ -396,7 +389,6 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
         injectParam.fun_RtlAnsiStringToUnicodeString = (FUN_RTLANSISTRINGTOUNICODESTRING)GetProcAddress(hNtdll, "RtlAnsiStringToUnicodeString");
         injectParam.fun_RtlFreeUnicodeString = (RTLFREEUNICODESTRING)GetProcAddress(hNtdll, "RtlFreeUnicodeString");
 
-#define LOCAL_TEST 1
 #if LOCAL_TEST
         injectParam.lpFileData = pFileBuffer;
         MemoryLoadLibrary_Begin(&injectParam);
