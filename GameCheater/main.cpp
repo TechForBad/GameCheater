@@ -29,8 +29,21 @@ int main()
     }
     LOG("dwm process id: %d", pid);
 
+    // 获取dll文件全路径
+    wchar_t dllFilePath[MAX_PATH] = { 0 };
+    if (!tool::GetCurrentModuleDirPath(dllFilePath))
+    {
+        LOG("GetCurrentModuleDirPath failed");
+        return -1;
+    }
+    wcscat(dllFilePath, MY_DLL_NAME);
+
     // 远程注入dll
-    InjectDll::RemoteInjectDll(pid, L"C:\\Windows\\System32\\dbgeng.dll");
+    if (!InjectDll::RemoteInjectDll(pid, dllFilePath))
+    {
+        LOG("RemoteInjectDll failed");
+        return -1;
+    }
 
     /*
     // 初始化驱动通信

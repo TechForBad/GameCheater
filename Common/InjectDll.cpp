@@ -56,7 +56,7 @@ typedef struct _INJECTPARAM
     MESSAGEBOXA						 fun_MessageBoxA;
 } INJECTPARAM;
 
-static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
+ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
 {
 	LPVOID lpFileData = InjectParam->lpFileData;
 	DWORD  dwDataLength = InjectParam->dwDataLength;
@@ -316,7 +316,7 @@ static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
 	return 0;
 }
 
-static void MemoryLoadLibrary_End()
+void MemoryLoadLibrary_End()
 {
 	LOG("MemoryLoadLibrary_End\r\n");
 }
@@ -331,7 +331,7 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 
 	HANDLE hRemoteThread = NULL;
 
-	do 
+	do
 	{
 		// 打开目标进程
         hTargetProcess = OpenProcess(
@@ -353,16 +353,9 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
             LOG("LoadFileToMemory failed");
 			break;
         }
+        LOG("Dll file size: %d", dwFileSize);
 
         // shellcode
-        WORD* pShellCodeBegin = (WORD*)MemoryLoadLibrary_Begin;
-        //----
-        // 	while (*pShellCodeBegin != 0xCCCC)
-        // 	{
-        // 		pShellCodeBegin++;
-        // 		ShellCodeSize += 2;
-        // 	}
-        //----或者这样取ShellCode长度
         DWORD shellCodeSize = (ULONG_PTR)MemoryLoadLibrary_End - (ULONG_PTR)MemoryLoadLibrary_Begin;
         pShellCodeBuffer = malloc(shellCodeSize);
 		if (NULL == pShellCodeBuffer)
@@ -370,7 +363,8 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
             LOG("malloc failed");
             break;
 		}
-        RtlCopyMemory(pShellCodeBuffer, MemoryLoadLibrary_Begin, shellCodeSize);  // 拷贝ShellCode代码长度
+        RtlCopyMemory(pShellCodeBuffer, MemoryLoadLibrary_Begin, shellCodeSize);
+        LOG("Shellcode size: %d", shellCodeSize);
 
 		// 参数
         INJECTPARAM injectParam;
@@ -395,13 +389,16 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 #else
         // 申请内存，把Shellcode和DLL数据，和参数复制到目标进程
 		// 安全起见，大小多加0x100
-        pStartAddress = (PBYTE)VirtualAllocEx(hTargetProcess, 0, dwFileSize + 0x100 + shellCodeSize + sizeof(injectParam), MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+        SIZE_T totalSize = dwFileSize + 0x100 + shellCodeSize + sizeof(injectParam);
+        pStartAddress = (PBYTE)VirtualAllocEx(hTargetProcess, 0, totalSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 		if (NULL == pStartAddress)
 		{
             LOG("VirtualAllocEx failed");
             break;
 		}
         injectParam.lpFileData = pStartAddress;
+        LOG("TotalSize: %d, DllFileSize: %d, ShellCodeSize: %d, ParamSize: %d",
+            totalSize, dwFileSize, shellCodeSize, sizeof(injectParam));
 
 		// 写入dll文件
 		SIZE_T dwWrited = 0;
@@ -412,13 +409,24 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 		}
 		// 写入shellcode
         PBYTE pShellCodeAddress = pStartAddress + dwFileSize + 0x100;
-        WriteProcessMemory(hTargetProcess, pShellCodeAddress, pShellCodeBuffer, shellCodeSize, &dwWrited);
+        if (!WriteProcessMemory(hTargetProcess, pShellCodeAddress, pShellCodeBuffer, shellCodeSize, &dwWrited))
+        {
+            LOG("WriteProcessMemory failed");
+            break;
+        }
 		// 写入参数
         PBYTE pShellCodeParamAddress = pStartAddress + dwFileSize + 0x100 + shellCodeSize;
-        WriteProcessMemory(hTargetProcess, pShellCodeParamAddress, &injectParam, sizeof(injectParam), &dwWrited);
+        if (!WriteProcessMemory(hTargetProcess, pShellCodeParamAddress, &injectParam, sizeof(injectParam), &dwWrited))
+        {
+            LOG("WriteProcessMemory failed");
+            break;
+        }
+
+        LOG("StartAddress: 0x%llx, ShellCodeAddress: 0x%llx, ShellCodeParamAddress: 0x%llx",
+            pStartAddress, pShellCodeAddress, pShellCodeParamAddress);
 
 		// 创建远程线程
-        HANDLE hRemoteThread = CreateRemoteThread(hTargetProcess, 0, 0, (LPTHREAD_START_ROUTINE)pShellCodeAddress, pShellCodeParamAddress, 0, 0);
+        hRemoteThread = CreateRemoteThread(hTargetProcess, 0, 0, (LPTHREAD_START_ROUTINE)pShellCodeAddress, pShellCodeParamAddress, 0, 0);
 		if (NULL == hRemoteThread)
 		{
             LOG("CreateRemoteThread failed");
