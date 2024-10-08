@@ -70,7 +70,7 @@ BOOL UnloadDriver(const char* szSvrName);
 bool GetProcessId(LPCWSTR processName, PDWORD pid);
 
 // 加载文件到内存
-PVOID LoadFileToMemory(const wchar_t* filePath, size_t& fileBufferLen);
+PVOID LoadFileToMemory(const wchar_t* filePath, DWORD& fileBufferLen);
 
 // 按照指定的基地址修复重定向
 bool FixRelocation(PVOID pImageBuffer, PVOID pBaseAddress);

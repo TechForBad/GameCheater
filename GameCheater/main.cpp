@@ -20,14 +20,6 @@ int main()
         return -1;
     }
 
-    // 初始化驱动通信
-    DriverComm* pDriverComm = DriverComm::GetInstance();
-    if (!pDriverComm->Init())
-    {
-        LOG("Init failed");
-        return -1;
-    }
-
     // 获取dwm进程号
     DWORD pid = 0;
     if (!tool::GetProcessId(L"dwm.exe", &pid))
@@ -37,7 +29,18 @@ int main()
     }
     LOG("dwm process id: %d", pid);
 
+    // 远程注入dll
+    InjectDll::RemoteInjectDll(pid, L"C:\\Windows\\System32\\dbgeng.dll");
 
+    /*
+    // 初始化驱动通信
+    DriverComm* pDriverComm = DriverComm::GetInstance();
+    if (!pDriverComm->Init())
+    {
+        LOG("Init failed");
+        return -1;
+    }
+    */
 
     return 0;
 }

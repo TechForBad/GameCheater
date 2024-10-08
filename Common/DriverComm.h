@@ -42,9 +42,6 @@ public:
     // 恢复进程
     bool ResumeTargetProcess(IN DWORD pid);
 
-    // 远程注入dll
-    bool RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath, PVOID* pRemoteModuleBase);
-
 private:
     DriverComm() = default;
     ~DriverComm() = default;

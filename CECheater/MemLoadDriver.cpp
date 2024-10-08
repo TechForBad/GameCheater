@@ -381,7 +381,7 @@ bool DBK_LoadMyDriver(LoadType loadType, const wchar_t* driverFilePath, const wc
     bool result = true;
 
     PVOID pFileBuffer = NULL;
-    size_t fileBufferLen = 0;
+    DWORD fileBufferLen = 0;
 
     PVOID pKernelImage = NULL;
     PVOID pUserImage = NULL;

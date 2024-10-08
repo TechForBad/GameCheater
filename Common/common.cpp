@@ -359,7 +359,7 @@ bool GetProcessId(LPCWSTR processName, PDWORD pid)
     return bFind;
 }
 
-PVOID LoadFileToMemory(const wchar_t* filePath, size_t& fileBufferLen)
+PVOID LoadFileToMemory(const wchar_t* filePath, DWORD& fileBufferLen)
 {
     HANDLE hFile = CreateFile(
         filePath,               // 文件路径
