@@ -56,7 +56,7 @@ typedef struct _INJECTPARAM
     MESSAGEBOXA						 fun_MessageBoxA;
 } INJECTPARAM;
 
-ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
+static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
 {
 	LPVOID lpFileData = InjectParam->lpFileData;
 	DWORD  dwDataLength = InjectParam->dwDataLength;
@@ -316,7 +316,7 @@ ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
 	return 0;
 }
 
-void MemoryLoadLibrary_End()
+static void MemoryLoadLibrary_End()
 {
 	LOG("MemoryLoadLibrary_End\r\n");
 }
