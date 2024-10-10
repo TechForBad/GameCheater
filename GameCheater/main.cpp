@@ -22,7 +22,7 @@ int main()
 
     // 获取dwm进程号
     DWORD pid = 0;
-    if (!tool::GetProcessId(L"CalculatorApp.exe", &pid))
+    if (!tool::GetProcessId(L"dwm.exe", &pid))
     {
         LOG("GetProcessId failed");
         return -1;
