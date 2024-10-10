@@ -60,6 +60,4 @@ typedef struct _INJECTPARAM
     MESSAGEBOXA						 fun_MessageBoxA;
 } INJECTPARAM;
 
-ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam);
-
-void MemoryLoadLibrary_End();
+PVOID GetShellCodeBuffer(DWORD& shellCodeSize);

@@ -6,7 +6,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
     {
     case DLL_PROCESS_ATTACH:
     {
-        MessageBoxA(NULL, "test1", "test2", MB_OK);
+        MessageBoxA(NULL, "1234", "ASDF", MB_OK);
         break;
     }
     case DLL_THREAD_ATTACH:

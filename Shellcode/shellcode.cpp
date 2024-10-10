@@ -1,6 +1,6 @@
 ﻿#include "shellcode.h"
 
-ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
+static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
 {
     LPVOID lpFileData = InjectParam->lpFileData;
     DWORD  dwDataLength = InjectParam->dwDataLength;
@@ -267,6 +267,21 @@ ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
     return 0;
 }
 
-void MemoryLoadLibrary_End()
+static void MemoryLoadLibrary_End()
 {
+}
+
+PVOID GetShellCodeBuffer(DWORD& shellCodeSize)
+{
+    shellCodeSize = (ULONG_PTR)MemoryLoadLibrary_End - (ULONG_PTR)MemoryLoadLibrary_Begin;
+
+    PVOID pShellCodeBuffer = malloc(shellCodeSize);
+    if (NULL == pShellCodeBuffer)
+    {
+        return NULL;
+    }
+
+    RtlCopyMemory(pShellCodeBuffer, MemoryLoadLibrary_Begin, shellCodeSize);
+
+    return pShellCodeBuffer;
 }

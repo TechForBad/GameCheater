@@ -37,14 +37,13 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
         LOG("Dll file size: %d", dwFileSize);
 
         // shellcode
-        DWORD shellCodeSize = (ULONG_PTR)MemoryLoadLibrary_End - (ULONG_PTR)MemoryLoadLibrary_Begin;
-        pShellCodeBuffer = malloc(shellCodeSize);
-		if (NULL == pShellCodeBuffer)
-		{
-            LOG("malloc failed");
+        DWORD shellCodeSize = 0;
+        pShellCodeBuffer = GetShellCodeBuffer(shellCodeSize);
+        if (NULL == pShellCodeBuffer)
+        {
+            LOG("GetShellCodeBuffer failed");
             break;
-		}
-        RtlCopyMemory(pShellCodeBuffer, MemoryLoadLibrary_Begin, shellCodeSize);
+        }
         LOG("Shellcode size: %d", shellCodeSize);
 
 		// 参数
@@ -118,6 +117,8 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 		DWORD dwExitCode = 0;
         WaitForSingleObject(hRemoteThread, -1);
         GetExitCodeThread(hRemoteThread, &dwExitCode);
+
+        LOG("Remote Thread Exit, exit code: %d", dwExitCode);
 #endif
 	} while (false);
 
