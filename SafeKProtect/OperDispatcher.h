@@ -8,16 +8,22 @@ public:
     static NTSTATUS DispatchOper(IN OUT COMM::PCMSG pMsg);
 
 private:
+    // 读进程内存
     static NTSTATUS ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);
 
+    // 写进程内存
     static NTSTATUS WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst);
 
+    // 获取进程模块基地址
     static NTSTATUS GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleName, OUT PVOID* pModuleBase, OUT PULONG moduleSize);
 
+    // 创建APC
     static NTSTATUS CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe);
 
+    // 为进程分配内存
     static NTSTATUS AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG allocationType, IN ULONG protect, OUT PVOID* pModuleBase);
 
+    // 为进程释放内存
     static NTSTATUS FreeProcessMem(IN DWORD pid, IN PVOID moduleBase);
 
     // 挂起线程
