@@ -1,7 +1,7 @@
 #include "MemLoadDriver.h"
 
 // 通过驱动的导出函数名获取函数地址
-PVOID GetDriverExportFuncByName(PVOID pImageAddr, const char* exportFuncName)
+static PVOID GetDriverExportFuncByName(PVOID pImageAddr, const char* exportFuncName)
 {
     // 获取驱动模块的大小imageSize
     MapMemInfo imageMap;
@@ -66,8 +66,51 @@ PVOID GetDriverExportFuncByName(PVOID pImageAddr, const char* exportFuncName)
     return pExportFunc;
 }
 
+// 按照指定的基地址修复重定向
+static bool FixRelocation(PVOID pImageBuffer, PVOID pBaseAddress)
+{
+    PIMAGE_NT_HEADERS pImageNtHeaders = ImageNtHeader(pImageBuffer);
+    if (NULL == pImageNtHeaders)
+    {
+        LOG("RtlImageNtHeader failed");
+        return false;
+    }
+    ULONG_PTR llDelta = (ULONG_PTR)pBaseAddress - pImageNtHeaders->OptionalHeader.ImageBase;
+    PIMAGE_BASE_RELOCATION pImageBaseRelocation = (PIMAGE_BASE_RELOCATION)CONVERT_RVA(pImageBuffer, pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
+    ULONG size = pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+    for (ULONG i = 0; i < size; i += pImageBaseRelocation->SizeOfBlock, pImageBaseRelocation = (PIMAGE_BASE_RELOCATION)((ULONG_PTR)pImageBaseRelocation + pImageBaseRelocation->SizeOfBlock))
+    {
+        for (PUSHORT chains = (PUSHORT)((ULONG_PTR)pImageBaseRelocation + sizeof(IMAGE_BASE_RELOCATION)); chains < (PUSHORT)((ULONG_PTR)pImageBaseRelocation + pImageBaseRelocation->SizeOfBlock); ++chains)
+        {
+            switch (*chains >> 12)
+            {
+            case IMAGE_REL_BASED_ABSOLUTE:
+            {
+                break;
+            }
+            case IMAGE_REL_BASED_HIGHLOW:
+            {
+                *(PULONG)CONVERT_RVA(pImageBuffer, pImageBaseRelocation->VirtualAddress + (*chains & 0x0fff)) += (ULONG)llDelta;
+                break;
+            }
+            case IMAGE_REL_BASED_DIR64:
+            {
+                *(PULONG_PTR)CONVERT_RVA(pImageBuffer, pImageBaseRelocation->VirtualAddress + (*chains & 0x0fff)) += llDelta;
+                break;
+            }
+            default:
+            {
+                LOG("unknown type");
+                return false;
+            }
+            }
+        }
+    }
+    return true;
+}
+
 // 修复导入表
-bool FixImports(PVOID pImageBuffer, PVOID pBaseAddress)
+static bool FixImports(PVOID pImageBuffer, PVOID pBaseAddress)
 {
     PIMAGE_IMPORT_DESCRIPTOR pImportDescriptor = NULL;
     PIMAGE_NT_HEADERS pImageNtHeaders = NULL;
@@ -434,7 +477,7 @@ bool DBK_LoadMyDriver(LoadType loadType, const wchar_t* driverFilePath, const wc
             memcpy((PCHAR)pUserImage + pImageSectionHeader[i].VirtualAddress, (PCHAR)pFileBuffer + pImageSectionHeader[i].PointerToRawData, pImageSectionHeader[i].SizeOfRawData);
         }
         // 5.进行重定位
-        if (!tool::FixRelocation(pUserImage, pKernelImage))
+        if (!FixRelocation(pUserImage, pKernelImage))
         {
             LOG("FixRelocation failed");
             result = false;

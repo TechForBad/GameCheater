@@ -83,6 +83,14 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
         );
         break;
     }
+    case COMM::Oper_GetHandleForProcessID:
+    {
+        ntStatus = GetHandleForProcessID(
+            pMsg->input_GetHandleForProcessID.pid,
+            &pMsg->output_GetHandleForProcessID.hProcHandle
+        );
+        break;
+    }
     default:
     {
         LOG_ERROR("Unknown OperCode: 0x%x", pMsg->oper);
@@ -430,4 +438,48 @@ NTSTATUS OperDispatcher::SuspendTargetProcess(IN DWORD pid)
 NTSTATUS OperDispatcher::ResumeTargetProcess(IN DWORD pid)
 {
     return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS OperDispatcher::GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHandle)
+{
+    PEPROCESS pEprocess = NULL;
+
+    __try
+    {
+        NTSTATUS ntStatus = PsLookupProcessByProcessId((PVOID)(UINT_PTR)(pid), &pEprocess);
+        if (!NT_SUCCESS(ntStatus))
+        {
+            LOG_ERROR("PsLookupProcessByProcessId failed, ntStatus: 0x%x", ntStatus);
+            return ntStatus;
+        }
+
+        ntStatus = ObOpenObjectByPointer(
+            pEprocess,
+            0,
+            NULL,
+            PROCESS_ALL_ACCESS,
+            *PsProcessType,
+            KernelMode,
+            pProcHandle
+        );
+        if (!NT_SUCCESS(ntStatus))
+        {
+            LOG_ERROR("ObOpenObjectByPointer failed, ntStatus: 0x%x", ntStatus);
+            ObDereferenceObject(pEprocess);
+            return ntStatus;
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        LOG_ERROR("Trigger Exception 0x%x,", GetExceptionCode());
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    if (pEprocess)
+    {
+        ObDereferenceObject(pEprocess);
+    }
+
+    return STATUS_SUCCESS;
 }

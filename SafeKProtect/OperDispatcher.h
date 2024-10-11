@@ -29,4 +29,7 @@ private:
 
     // 恢复进程
     static NTSTATUS ResumeTargetProcess(IN DWORD pid);
+
+    // 打开进程
+    static NTSTATUS GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHandle);
 };

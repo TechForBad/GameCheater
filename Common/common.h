@@ -72,7 +72,7 @@ bool GetProcessId(LPCWSTR processName, PDWORD pid);
 // 加载文件到内存
 PVOID LoadFileToMemory(const wchar_t* filePath, DWORD& fileBufferLen);
 
-// 按照指定的基地址修复重定向
-bool FixRelocation(PVOID pImageBuffer, PVOID pBaseAddress);
+// 创建full dump
+BOOL CreateFullDump(HANDLE hProcess, DWORD processID, const char* dumpFilePath);
 
 }

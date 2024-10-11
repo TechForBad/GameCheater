@@ -38,6 +38,8 @@ enum Operation : unsigned long
     Oper_SuspendTargetProcess,
     // 恢复进程
     Oper_ResumeTargetProcess,
+    // 打开进程
+    Oper_GetHandleForProcessID,
 };
 
 #pragma pack(1)
@@ -128,6 +130,17 @@ typedef struct _CMSG
         {
             DWORD pid;
         } input_ResumeTargetProcess;
+
+        // 打开进程
+        struct Input_GetHandleForProcessID
+        {
+            DWORD pid;
+        } input_GetHandleForProcessID;
+
+        struct Output_GetHandleForProcessID
+        {
+            HANDLE hProcHandle;
+        } output_GetHandleForProcessID;
     };
 } CMSG, * PCMSG;
 #pragma pack()

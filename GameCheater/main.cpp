@@ -20,8 +20,21 @@ int main()
         return -1;
     }
 
+    // 初始化驱动通信
+    DriverComm* pDriverComm = DriverComm::GetInstance();
+    if (!pDriverComm->Init())
+    {
+        LOG("Init failed");
+        return -1;
+    }
+    
     // 获取dwm进程号
     DWORD pid = 0;
+    printf("Input Process Id: ");
+    std::cin >> pid;
+    printf("Output: %d\n", pid);
+
+    /*
     if (!tool::GetProcessId(L"dwm.exe", &pid))
     {
         LOG("GetProcessId failed");
@@ -44,16 +57,34 @@ int main()
         LOG("RemoteInjectDll failed");
         return -1;
     }
+    */
 
-    /*
-    // 初始化驱动通信
-    DriverComm* pDriverComm = DriverComm::GetInstance();
-    if (!pDriverComm->Init())
+    // 获取进程句柄
+    HANDLE hProcHandle = NULL;
+    if (!pDriverComm->GetHandleForProcessID(pid, &hProcHandle))
     {
-        LOG("Init failed");
+        LOG("GetHandleForProcessID failed");
+        getchar();
         return -1;
     }
-    */
+
+    LOG("pid: %d, handle: %d", pid, hProcHandle);
+
+    // 创建full dump
+    LPCSTR dumpeFilePath = "D:\\analyze\\PUBG\\TslGame.dmp";
+    if (!tool::CreateFullDump(hProcHandle, pid, dumpeFilePath))
+    {
+        LOG("CreateFullDump failed");
+        getchar();
+        return -1;
+    }
+
+    if (hProcHandle)
+    {
+        CloseHandle(hProcHandle);
+    }
+
+    getchar();
 
     return 0;
 }

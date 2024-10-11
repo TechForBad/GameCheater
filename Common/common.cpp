@@ -181,7 +181,7 @@ BOOL LoadDriver(const wchar_t* driverName, const wchar_t* driverPath)
 
     // 打开服务控制管理器句柄hServiceMgr
     hServiceMgr = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (hServiceMgr == NULL)
+    if (NULL == hServiceMgr)
     {
         LOG("OpenSCManager failed");
         bRet = FALSE;
@@ -211,17 +211,17 @@ BOOL LoadDriver(const wchar_t* driverName, const wchar_t* driverPath)
         dwRtn = GetLastError();
         if (dwRtn != ERROR_IO_PENDING && dwRtn != ERROR_SERVICE_EXISTS)
         {
-            // 由于其他原因创建服务失败
+            LOG("CreateServiceW failed, last error: %d", dwRtn);
             bRet = FALSE;
             goto BeforeLeave;
         }
 
-        // 驱动程序已经加载，只需要打开  
+        // 驱动程序已经加载，只需要打开
         hServiceDDK = OpenServiceW(hServiceMgr, driverName, SERVICE_ALL_ACCESS);
         if (NULL == hServiceDDK)
         {
             // 如果打开服务也失败，则意味错误
-            LOG("OpenServiceA failed");
+            LOG("OpenServiceW failed");
             dwRtn = GetLastError();
             bRet = FALSE;
             goto BeforeLeave;
@@ -235,6 +235,7 @@ BOOL LoadDriver(const wchar_t* driverName, const wchar_t* driverPath)
         DWORD dwRtn = GetLastError();
         if (dwRtn != ERROR_IO_PENDING && dwRtn != ERROR_SERVICE_ALREADY_RUNNING)
         {
+            LOG("StartServiceA failed, last error: %d", dwRtn);
             bRet = FALSE;
             goto BeforeLeave;
         }
@@ -407,46 +408,36 @@ PVOID LoadFileToMemory(const wchar_t* filePath, DWORD& fileBufferLen)
     return pFileBuffer;
 }
 
-bool FixRelocation(PVOID pImageBuffer, PVOID pBaseAddress)
+BOOL CreateFullDump(HANDLE hProcess, DWORD pid, const char* dumpFilePath)
 {
-    PIMAGE_NT_HEADERS pImageNtHeaders = ImageNtHeader(pImageBuffer);
-    if (NULL == pImageNtHeaders)
+    // 创建转储文件
+    HANDLE hDumpFile = CreateFileA(dumpFilePath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (INVALID_HANDLE_VALUE == hDumpFile)
     {
-        LOG("RtlImageNtHeader failed");
-        return false;
+        LOG("CreateFileA failed, last error: %d", GetLastError());
+        return FALSE;
     }
-    ULONG_PTR llDelta = (ULONG_PTR)pBaseAddress - pImageNtHeaders->OptionalHeader.ImageBase;
-    PIMAGE_BASE_RELOCATION pImageBaseRelocation = (PIMAGE_BASE_RELOCATION)CONVERT_RVA(pImageBuffer, pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
-    ULONG size = pImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
-    for (ULONG i = 0; i < size; i += pImageBaseRelocation->SizeOfBlock, pImageBaseRelocation = (PIMAGE_BASE_RELOCATION)((ULONG_PTR)pImageBaseRelocation + pImageBaseRelocation->SizeOfBlock))
+
+    // 写入转储文件
+    BOOL success = MiniDumpWriteDump(
+        hProcess,
+        pid,
+        hDumpFile,
+        MiniDumpWithFullMemory,  // full dump
+        NULL,
+        NULL,
+        NULL
+    );
+    if (!success)
     {
-        for (PUSHORT chains = (PUSHORT)((ULONG_PTR)pImageBaseRelocation + sizeof(IMAGE_BASE_RELOCATION)); chains < (PUSHORT)((ULONG_PTR)pImageBaseRelocation + pImageBaseRelocation->SizeOfBlock); ++chains)
-        {
-            switch (*chains >> 12)
-            {
-            case IMAGE_REL_BASED_ABSOLUTE:
-            {
-                break;
-            }
-            case IMAGE_REL_BASED_HIGHLOW:
-            {
-                *(PULONG)CONVERT_RVA(pImageBuffer, pImageBaseRelocation->VirtualAddress + (*chains & 0x0fff)) += (ULONG)llDelta;
-                break;
-            }
-            case IMAGE_REL_BASED_DIR64:
-            {
-                *(PULONG_PTR)CONVERT_RVA(pImageBuffer, pImageBaseRelocation->VirtualAddress + (*chains & 0x0fff)) += llDelta;
-                break;
-            }
-            default:
-            {
-                LOG("unknown type");
-                return false;
-            }
-            }
-        }
+        LOG("MiniDumpWriteDump failed, last error: %d", GetLastError());
+        CloseHandle(hDumpFile);
+        return FALSE;
     }
-    return true;
+
+    CloseHandle(hDumpFile);
+
+    return TRUE;
 }
 
 }

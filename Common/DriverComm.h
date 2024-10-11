@@ -42,6 +42,9 @@ public:
     // 恢复进程
     bool ResumeTargetProcess(IN DWORD pid);
 
+    // 打开进程
+    bool GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHandle);
+
 private:
     DriverComm() = default;
     ~DriverComm() = default;

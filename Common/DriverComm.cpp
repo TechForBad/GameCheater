@@ -3,7 +3,7 @@
 bool DriverComm::Init()
 {
     // 加载驱动
-    if (!LoadDriver(TRUE))
+    if (!LoadDriver(false))
     {
         LOG("LoadDriver failed");
         return false;
@@ -367,6 +367,32 @@ bool DriverComm::ResumeTargetProcess(IN DWORD pid)
         LOG("send control code failed, ret code: 0x%x", ulRet);
         return false;
     }
+
+    return true;
+}
+
+bool DriverComm::GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHandle)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_GetHandleForProcessID;
+    cmsg_.needOutput = true;
+    cmsg_.input_GetHandleForProcessID.pid = pid;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    *pProcHandle = cmsg_.output_GetHandleForProcessID.hProcHandle;
 
     return true;
 }
