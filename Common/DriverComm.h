@@ -53,6 +53,7 @@ private:
 
 private:
     bool LoadDriver(bool normalLoad);
+    bool InitDriverComm();
     bool BuildDriverComm();
     bool TestDriverComm();
 

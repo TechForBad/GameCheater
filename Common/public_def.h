@@ -12,7 +12,6 @@
 #define MY_DLL_NAME L"MyDll.dll"
 
 #define PROCESS_NAME_IN_EPROCESS_CHEAT_ENGINE "richstuff-x86"
-#define PROCESS_NAME_IN_EPROCESS_GAME_CHEATER "GameCheater.ex"
 
 #define LOG_TAG "GameCheater"
 

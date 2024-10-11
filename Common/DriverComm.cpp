@@ -2,11 +2,22 @@
 
 bool DriverComm::Init()
 {
-    // 加载驱动
-    if (!LoadDriver(false))
+    // 初始化驱动通信
+    if (!InitDriverComm())
     {
-        LOG("LoadDriver failed");
+        LOG("InitDriverComm failed");
         return false;
+    }
+
+    // 通信测试，如果测试失败则需要加载驱动
+    if (!TestDriverComm())
+    {
+        // 加载驱动
+        if (!LoadDriver(false))
+        {
+            LOG("LoadDriver failed");
+            return false;
+        }
     }
 
     // 构建驱动通信
@@ -72,15 +83,15 @@ bool DriverComm::LoadDriver(bool normalLoad)
     return true;
 }
 
-bool DriverComm::BuildDriverComm()
+bool DriverComm::InitDriverComm()
 {
-    // 初始化通信
     HMODULE hNtdll = ::GetModuleHandleA("ntdll.dll");
     if (NULL == hNtdll)
     {
         LOG("GetModuleHandleA failed");
         return false;
     }
+
     func_NtQueryIntervalProfile_ = (Func_NtQueryIntervalProfile)::GetProcAddress(hNtdll, "NtQueryIntervalProfile");
     if (NULL == func_NtQueryIntervalProfile_)
     {
@@ -88,6 +99,11 @@ bool DriverComm::BuildDriverComm()
         return false;
     }
 
+    return true;
+}
+
+bool DriverComm::BuildDriverComm()
+{
     // 初始化CMSG
     ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
     LOG("CMsg Address: 0x%llx Size: %d", &cmsg_, sizeof(COMM::CMSG));

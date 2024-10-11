@@ -1,5 +1,10 @@
 #include "common.h"
 
+BOOL IsConnectionCodeCallback(ULONG ulCode)
+{
+    return ((COMM::TEST_CODE == ulCode) || ((ulCode & 0xFFF00000) == COMM::MSG_PART_PREFIX) || (COMM::CTRL_CODE == ulCode));
+}
+
 ULONG ConnectionCallback(ULONG ulCode)
 {
     static COMM::PCMSG g_msg = NULL;
@@ -94,7 +99,7 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING re
     }
 
     // 初始化连接
-    if (!ConnUtils::InitConnection(ConnectionCallback))
+    if (!ConnUtils::InitConnection(IsConnectionCodeCallback, ConnectionCallback))
     {
         LOG_ERROR("InitConnection failed");
         return STATUS_UNSUCCESSFUL;

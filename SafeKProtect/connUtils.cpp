@@ -10,6 +10,8 @@ typedef unsigned int    uint32;
 #define DWORDn(x, n)  (*((_DWORD*)&(x)+n))
 #define DWORD2(x)   DWORDn(x,  2)
 
+static FuncIsConnectionCodeCallback g_isConnectionCodeCallback = NULL;
+
 static FuncConnectionCallback g_connectionCallback = NULL;
 
 __int64(__fastcall* origin_HaliQuerySystemInformation)(unsigned int a1, unsigned int a2, LARGE_INTEGER* a3, unsigned int* a4);
@@ -21,28 +23,30 @@ __int64 __fastcall fun_HaliQuerySystemInformation(unsigned int a1, unsigned int 
         return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
     }
 
-    CHAR procName[300] = { 0 };
-    ProcessUtils::GetProcessName(PsGetCurrentProcess(), procName);
-    if (0 != _stricmp(procName, PROCESS_NAME_IN_EPROCESS_GAME_CHEATER))
+    ULONG ulCode = a3->LowPart;
+
+    if (!g_isConnectionCodeCallback(ulCode))
     {
         return origin_HaliQuerySystemInformation(a1, a2, a3, a4);
     }
 
-    ULONG ret = g_connectionCallback(a3->LowPart);
+    ULONG ret = g_connectionCallback(ulCode);
+
     BYTE4(a3->QuadPart) = 0x1;
     DWORD2(a3->QuadPart) = ret;
 
     return 0;
 }
 
-BOOL ConnUtils::InitConnection(FuncConnectionCallback connectionCallback)
+BOOL ConnUtils::InitConnection(FuncIsConnectionCodeCallback isConnectionCodeCallback, FuncConnectionCallback connectionCallback)
 {
-    if (NULL == connectionCallback)
+    if ((NULL == isConnectionCodeCallback) || (NULL == connectionCallback))
     {
         LOG_ERROR("Param error");
         return FALSE;
     }
 
+    g_isConnectionCodeCallback = isConnectionCodeCallback;
     g_connectionCallback = connectionCallback;
 
     PVOID fun_NtQueryIntervalProfile = MemoryUtils::GetSSDTFunctionAddress("NtQueryIntervalProfile");
