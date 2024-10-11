@@ -30,6 +30,8 @@ enum Operation : unsigned long
     Oper_CreateAPC,
     // 为进程分配内存
     Oper_AllocProcessMem,
+    // 为进程释放内存
+    Oper_FreeProcessMem,
     // 挂起线程
     Oper_SuspendTargetThread,
     // 恢复线程
@@ -40,6 +42,12 @@ enum Operation : unsigned long
     Oper_ResumeTargetProcess,
     // 打开进程
     Oper_GetHandleForProcessID,
+    // 读物理地址
+    Oper_ReadPhysicalMemory,
+    // 写物理地址
+    Oper_WritePhysicalMemory,
+    // 获取虚拟地址对应的物理地址
+    Oper_GetPhysicalAddress,
 };
 
 #pragma pack(1)
@@ -107,6 +115,13 @@ typedef struct _CMSG
             PVOID moduleBase;
         } output_AllocProcessMem;
 
+        // 为进程释放内存
+        struct Input_FreeProcessMem
+        {
+            DWORD pid;
+            PVOID moduleBase;
+        } input_FreeProcessMem;
+
         // 挂起线程
         struct Input_SuspendTargetThread
         {
@@ -141,6 +156,36 @@ typedef struct _CMSG
         {
             HANDLE hProcHandle;
         } output_GetHandleForProcessID;
+
+        // 读物理地址
+        struct Input_ReadPhysicalMemory
+        {
+            PBYTE pPhySrc;
+            ULONG readLen;
+
+            PVOID pUserDst;
+        } input_ReadPhysicalMemory;
+
+        // 写物理地址
+        struct Input_WritePhysicalMemory
+        {
+            PBYTE pUserSrc;
+            ULONG writeLen;
+
+            PVOID pPhyDst;
+        } input_WritePhysicalMemory;
+
+        // 获取虚拟地址对应的物理地址
+        struct Input_GetPhysicalAddress
+        {
+            DWORD pid;
+            PVOID virtualAddress;
+        } input_GetPhysicalAddress;
+
+        struct Output_GetPhysicalAddress
+        {
+            PVOID physicalAddress;
+        } output_GetPhysicalAddress;
     };
 } CMSG, * PCMSG;
 #pragma pack()

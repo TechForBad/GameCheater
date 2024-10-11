@@ -27,7 +27,7 @@ int main()
         LOG("Init failed");
         return -1;
     }
-    
+
     // 获取dwm进程号
     DWORD pid = 0;
     printf("Input Process Id: ");

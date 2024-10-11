@@ -30,6 +30,9 @@ public:
     // 为进程分配内存
     bool AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG allocationType, IN ULONG protect, OUT PVOID* pModuleBase);
 
+    // 为进程释放内存
+    bool FreeProcessMem(IN DWORD pid, IN PVOID moduleBase);
+
     // 挂起线程
     bool SuspendTargetThread(IN DWORD tid);
 
@@ -44,6 +47,15 @@ public:
 
     // 打开进程
     bool GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHandle);
+
+    // 读物理地址
+    bool ReadPhysicalMemory(IN PBYTE pPhySrc, IN ULONG readLen, IN PVOID pUserDst);
+
+    // 写物理地址
+    bool WritePhysicalMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN PVOID pPhyDst);
+
+    // 获取虚拟地址对应的物理地址
+    bool GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress);
 
 private:
     DriverComm() = default;

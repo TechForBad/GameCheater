@@ -291,6 +291,31 @@ bool DriverComm::AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG alloc
     return true;
 }
 
+bool DriverComm::FreeProcessMem(IN DWORD pid, IN PVOID moduleBase)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_FreeProcessMem;
+    cmsg_.needOutput = false;
+    cmsg_.input_FreeProcessMem.pid = pid;
+    cmsg_.input_FreeProcessMem.moduleBase = moduleBase;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
 bool DriverComm::SuspendTargetThread(IN DWORD tid)
 {
     if (!is_init_)
@@ -409,6 +434,84 @@ bool DriverComm::GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHandle)
     }
 
     *pProcHandle = cmsg_.output_GetHandleForProcessID.hProcHandle;
+
+    return true;
+}
+
+bool DriverComm::ReadPhysicalMemory(IN PBYTE pPhySrc, IN ULONG readLen, IN PVOID pUserDst)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_ReadPhysicalMemory;
+    cmsg_.needOutput = false;
+    cmsg_.input_ReadPhysicalMemory.pPhySrc = pPhySrc;
+    cmsg_.input_ReadPhysicalMemory.readLen = readLen;
+    cmsg_.input_ReadPhysicalMemory.pUserDst = pUserDst;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::WritePhysicalMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN PVOID pPhyDst)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_WritePhysicalMemory;
+    cmsg_.needOutput = false;
+    cmsg_.input_WritePhysicalMemory.pUserSrc = pUserSrc;
+    cmsg_.input_WritePhysicalMemory.writeLen = writeLen;
+    cmsg_.input_WritePhysicalMemory.pPhyDst = pPhyDst;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_GetPhysicalAddress;
+    cmsg_.needOutput = true;
+    cmsg_.input_GetPhysicalAddress.pid = pid;
+    cmsg_.input_GetPhysicalAddress.virtualAddress = virtualAddress;
+    *pPhysicalAddress = cmsg_.output_GetPhysicalAddress.physicalAddress;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
 
     return true;
 }

@@ -6,6 +6,7 @@
 #include <windef.h>
 #include <ntimage.h>
 #include <ntstrsafe.h>
+#include <intrin.h>
 
 typedef struct PiDDBCacheEntry
 {

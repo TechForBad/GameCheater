@@ -18,6 +18,8 @@ private:
 
     static NTSTATUS AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG allocationType, IN ULONG protect, OUT PVOID* pModuleBase);
 
+    static NTSTATUS FreeProcessMem(IN DWORD pid, IN PVOID moduleBase);
+
     // 挂起线程
     static NTSTATUS SuspendTargetThread(IN DWORD tid);
 
@@ -32,4 +34,13 @@ private:
 
     // 打开进程
     static NTSTATUS GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHandle);
+
+    // 读物理地址
+    static NTSTATUS ReadPhysicalMemory(IN PBYTE pPhySrc, IN ULONG readLen, IN PVOID pUserDst);
+
+    // 写物理地址
+    static NTSTATUS WritePhysicalMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN PVOID pPhyDst);
+
+    // 获取虚拟地址对应的物理地址
+    static NTSTATUS GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress);
 };

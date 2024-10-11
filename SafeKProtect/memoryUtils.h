@@ -35,5 +35,15 @@ public:
     // 根据函数名获取SSDT函数地址
     static PVOID GetSSDTFunctionAddress(LPCSTR functionName);
 
+    // 判断地址是否安全
     static BOOLEAN IsAddressSafe(UINT_PTR startAddress);
+
+    // 读物理地址
+    static NTSTATUS ReadPhysicalMemory(IN PBYTE pPhySrc, IN ULONG readLen, IN PVOID pUserDst);
+
+    // 写物理地址
+    static NTSTATUS WritePhysicalMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN PVOID pPhyDst);
+
+    // 获取虚拟地址对应的物理地址
+    static NTSTATUS GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress);
 };

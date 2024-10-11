@@ -389,3 +389,206 @@ BOOLEAN MemoryUtils::IsAddressSafe(UINT_PTR startAddress)
         return (physical.QuadPart != 0);
     }
 }
+
+static UINT64 g_maxPhysAddress = 0;
+static UINT64 getMaxPhysAddress()
+{
+    if (0 == g_maxPhysAddress)
+    {
+        int r[4];
+        __cpuid(r, 0x80000008);
+
+        // get max physical address
+        int physicalbits = r[0] & 0xff;
+
+        g_maxPhysAddress = 0xFFFFFFFFFFFFFFFFULL;
+        g_maxPhysAddress = g_maxPhysAddress >> physicalbits;    // if physicalbits==36 then maxPhysAddress=0x000000000fffffff
+        g_maxPhysAddress = ~(g_maxPhysAddress << physicalbits); // << 36 = 0xfffffff000000000 .  after inverse : 0x0000000fffffffff		
+    }
+
+    return g_maxPhysAddress;
+}
+
+NTSTATUS MemoryUtils::ReadPhysicalMemory(IN PBYTE pPhySrc, IN ULONG readLen, IN PVOID pUserDst)
+{
+    if (((UINT64)pPhySrc > getMaxPhysAddress()) || ((UINT64)pPhySrc + readLen > getMaxPhysAddress()))
+    {
+        LOG_ERROR("Invalid physical address, phy src start: %p, phy src end: %p", pPhySrc, pPhySrc + readLen);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    PMDL outputMdl = IoAllocateMdl(pUserDst, (ULONG)readLen, FALSE, FALSE, NULL);
+    __try
+    {
+        MmProbeAndLockPages(outputMdl, KernelMode, IoWriteAccess);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        LOG_ERROR("Trigger Exception 0x%x", GetExceptionCode());
+        IoFreeMdl(outputMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    HANDLE hPhysmem = NULL;
+    UNICODE_STRING ustrPhysmem;
+    OBJECT_ATTRIBUTES objectAttributes;
+    RtlInitUnicodeString(&ustrPhysmem, L"\\device\\physicalmemory");
+    InitializeObjectAttributes(&objectAttributes, &ustrPhysmem, OBJ_CASE_INSENSITIVE, NULL, NULL);
+    NTSTATUS ntStatus = ZwOpenSection(&hPhysmem, SECTION_ALL_ACCESS, &objectAttributes);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("ZwOpenSection failed, ntStatus: 0x%x", ntStatus);
+        MmUnlockPages(outputMdl);
+        IoFreeMdl(outputMdl);
+        return ntStatus;
+    }
+
+    SIZE_T length = 0x2000;     // pinp->bytestoread;   // in case of a overlapping region
+    PHYSICAL_ADDRESS viewBase;
+    viewBase.QuadPart = (ULONGLONG)(pPhySrc);
+    UCHAR* memoryView = NULL;
+    ntStatus = ZwMapViewOfSection(
+        hPhysmem,               // sectionhandle
+        NtCurrentProcess(),     // processhandle (should be -1)
+        (PVOID*)&memoryView,    // BaseAddress
+        0L,                     // ZeroBits
+        length,                 // CommitSize
+        &viewBase,              // SectionOffset
+        &length,                // ViewSize
+        ViewShare,
+        0,
+        PAGE_READWRITE
+    );
+    if (!NT_SUCCESS(ntStatus) || (NULL == memoryView))
+    {
+        LOG_ERROR("ZwMapViewOfSection failed, ntStatus: 0x%x", ntStatus);
+        ZwClose(hPhysmem);
+        MmUnlockPages(outputMdl);
+        IoFreeMdl(outputMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    UINT_PTR toread = readLen;
+    if (toread > length)
+    {
+        toread = length;
+    }
+    if (0 == toread)
+    {
+        LOG_ERROR("size of mem to read is zero");
+        ZwUnmapViewOfSection(NtCurrentProcess(), memoryView);
+        ZwClose(hPhysmem);
+        MmUnlockPages(outputMdl);
+        IoFreeMdl(outputMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    UINT_PTR offset = (UINT_PTR)(pPhySrc)-(UINT_PTR)viewBase.QuadPart;
+    if (offset + toread > length)
+    {
+        LOG_ERROR("Too small map");
+        ZwUnmapViewOfSection(NtCurrentProcess(), memoryView);
+        ZwClose(hPhysmem);
+        MmUnlockPages(outputMdl);
+        IoFreeMdl(outputMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    __try
+    {
+        RtlCopyMemory(pUserDst, &memoryView[offset], toread);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        LOG_ERROR("Trigger Exception 0x%x", GetExceptionCode());
+    }
+
+    ZwUnmapViewOfSection(NtCurrentProcess(), memoryView);
+    ZwClose(hPhysmem);
+    MmUnlockPages(outputMdl);
+    IoFreeMdl(outputMdl);
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS MemoryUtils::WritePhysicalMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN PVOID pPhyDst)
+{
+    HANDLE hPhysmem = NULL;
+    UNICODE_STRING ustrPhysmem;
+    OBJECT_ATTRIBUTES objectAttributes;
+    RtlInitUnicodeString(&ustrPhysmem, L"\\device\\physicalmemory");
+    InitializeObjectAttributes(&objectAttributes, &ustrPhysmem, OBJ_CASE_INSENSITIVE, NULL, NULL);
+    NTSTATUS ntStatus = ZwOpenSection(&hPhysmem, SECTION_ALL_ACCESS, &objectAttributes);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("ZwOpenSection failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+
+    UCHAR* memoryView = NULL;
+    PHYSICAL_ADDRESS viewBase;
+    viewBase.QuadPart = (ULONGLONG)pPhyDst;
+    SIZE_T length = 0x2000;     // pinp->bytestoread;
+    ntStatus = ZwMapViewOfSection(
+        hPhysmem,               // sectionhandle
+        NtCurrentProcess(),     // processhandle
+        (PVOID*)&memoryView,    // BaseAddress
+        0L,                     // ZeroBits
+        length,                 // CommitSize
+        &viewBase,              // SectionOffset
+        &length,                // ViewSize
+        ViewShare,
+        0,
+        PAGE_READWRITE
+    );
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("ZwMapViewOfSection failed, ntStatus: 0x%x", ntStatus);
+        ZwClose(hPhysmem);
+        return ntStatus;
+    }
+
+    UINT_PTR offset = (UINT_PTR)pPhyDst - (UINT_PTR)viewBase.QuadPart;
+    RtlCopyMemory(&memoryView[offset], pUserSrc, writeLen);
+
+    ZwUnmapViewOfSection(NtCurrentProcess(), memoryView);
+    ZwClose(hPhysmem);
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS MemoryUtils::GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress)
+{
+    PEPROCESS pEprocess = NULL;
+    NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("PsLookupProcessByProcessId failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+
+    KAPC_STATE apc_state;
+    RtlZeroMemory(&apc_state, sizeof(apc_state));
+    KeStackAttachProcess(pEprocess, &apc_state);
+
+    PHYSICAL_ADDRESS physical;
+    physical.QuadPart = 0;
+    __try
+    {
+        physical = MmGetPhysicalAddress(virtualAddress);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        LOG_ERROR("Trigger Exception 0x%x", GetExceptionCode());
+        KeUnstackDetachProcess(&apc_state);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    KeUnstackDetachProcess(&apc_state);
+    ObDereferenceObject(pEprocess);
+
+    RtlCopyMemory(pPhysicalAddress, &physical.QuadPart, 8);
+
+    return STATUS_SUCCESS;
+}

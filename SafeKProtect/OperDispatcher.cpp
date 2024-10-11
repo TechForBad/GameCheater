@@ -55,6 +55,14 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
         );
         break;
     }
+    case COMM::Oper_FreeProcessMem:
+    {
+        ntStatus = FreeProcessMem(
+            pMsg->input_FreeProcessMem.pid,
+            pMsg->input_FreeProcessMem.moduleBase
+        );
+        break;
+    }
     case COMM::Oper_SuspendTargetThread:
     {
         ntStatus = SuspendTargetThread(
@@ -88,6 +96,33 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
         ntStatus = GetHandleForProcessID(
             pMsg->input_GetHandleForProcessID.pid,
             &pMsg->output_GetHandleForProcessID.hProcHandle
+        );
+        break;
+    }
+    case COMM::Oper_ReadPhysicalMemory:
+    {
+        ntStatus = ReadPhysicalMemory(
+            pMsg->input_ReadPhysicalMemory.pPhySrc,
+            pMsg->input_ReadPhysicalMemory.readLen,
+            pMsg->input_ReadPhysicalMemory.pUserDst
+        );
+        break;
+    }
+    case COMM::Oper_WritePhysicalMemory:
+    {
+        ntStatus = WritePhysicalMemory(
+            pMsg->input_WritePhysicalMemory.pUserSrc,
+            pMsg->input_WritePhysicalMemory.writeLen,
+            pMsg->input_WritePhysicalMemory.pPhyDst
+        );
+        break;
+    }
+    case COMM::Oper_GetPhysicalAddress:
+    {
+        ntStatus = GetPhysicalAddress(
+            pMsg->input_GetPhysicalAddress.pid,
+            pMsg->input_GetPhysicalAddress.virtualAddress,
+            &pMsg->output_GetPhysicalAddress.physicalAddress
         );
         break;
     }
@@ -420,6 +455,35 @@ NTSTATUS OperDispatcher::AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULO
     return STATUS_SUCCESS;
 }
 
+NTSTATUS OperDispatcher::FreeProcessMem(IN DWORD pid, IN PVOID moduleBase)
+{
+    PEPROCESS pEprocess = NULL;
+    NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("PsLookupProcessByProcessId failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+
+    KAPC_STATE apcState;
+    KeStackAttachProcess(pEprocess, &apcState);
+
+    SIZE_T regionSize = 0;
+    ntStatus = ZwFreeVirtualMemory(NtCurrentProcess(), &moduleBase, &regionSize, MEM_RELEASE);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("ZwFreeVirtualMemory failed, ntStatus: 0x%x", ntStatus);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
+        return ntStatus;
+    }
+
+    KeUnstackDetachProcess(&apcState);
+    ObDereferenceObject(pEprocess);
+
+    return STATUS_SUCCESS;
+}
+
 NTSTATUS OperDispatcher::SuspendTargetThread(IN DWORD tid)
 {
     return STATUS_UNSUCCESSFUL;
@@ -482,4 +546,19 @@ NTSTATUS OperDispatcher::GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHa
     }
 
     return STATUS_SUCCESS;
+}
+
+NTSTATUS OperDispatcher::ReadPhysicalMemory(IN PBYTE pPhySrc, IN ULONG readLen, IN PVOID pUserDst)
+{
+    return MemoryUtils::ReadPhysicalMemory(pPhySrc, readLen, pUserDst);
+}
+
+NTSTATUS OperDispatcher::WritePhysicalMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN PVOID pPhyDst)
+{
+    return MemoryUtils::WritePhysicalMemory(pUserSrc, writeLen, pPhyDst);
+}
+
+NTSTATUS OperDispatcher::GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress)
+{
+    return MemoryUtils::GetPhysicalAddress(pid, virtualAddress, pPhysicalAddress);
 }
