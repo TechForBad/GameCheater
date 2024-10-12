@@ -193,7 +193,7 @@ typedef struct _CMSG
         struct Input_InjectDllWithNoModuleByAPC
         {
             DWORD pid;
-            CHAR dllPath[MAX_PATH];
+            WCHAR dllPath[MAX_PATH];
         } input_InjectDllWithNoModuleByAPC;
     };
 } CMSG, * PCMSG;

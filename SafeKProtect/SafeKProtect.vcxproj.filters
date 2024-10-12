@@ -22,6 +22,12 @@
     <ClInclude Include="OperDispatcher.h">
       <Filter>OperDispatcher</Filter>
     </ClInclude>
+    <ClInclude Include="fileUtils.h">
+      <Filter>FileUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="shellcode.h">
+      <Filter>Shellcode</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">
@@ -45,6 +51,12 @@
     <Filter Include="OperDispatcher">
       <UniqueIdentifier>{c2a40dc3-eb62-4557-ab68-679c0ebabc1b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="FileUtils">
+      <UniqueIdentifier>{04eab4b2-c84c-4fba-9def-d56d64dfb5c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shellcode">
+      <UniqueIdentifier>{fed9bcbb-b026-47da-abe9-4445fd32f4d2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DriverEntry.cpp">
@@ -64,6 +76,12 @@
     </ClCompile>
     <ClCompile Include="OperDispatcher.cpp">
       <Filter>OperDispatcher</Filter>
+    </ClCompile>
+    <ClCompile Include="fileUtils.cpp">
+      <Filter>FileUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="shellcode.cpp">
+      <Filter>Shellcode</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

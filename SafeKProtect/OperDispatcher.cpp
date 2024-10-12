@@ -571,7 +571,139 @@ NTSTATUS OperDispatcher::GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, 
     return MemoryUtils::GetPhysicalAddress(pid, virtualAddress, pPhysicalAddress);
 }
 
-NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCSTR dllPath)
+NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dllPath)
 {
+    PEPROCESS pEprocess = NULL;
+    NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("PsLookupProcessByProcessId failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
 
+    KAPC_STATE apcState;
+    KeStackAttachProcess(pEprocess, &apcState);
+
+    // 文件buffer
+    PVOID pFileBuffer = NULL;
+    DWORD dwFileSize = 0;
+    UNICODE_STRING ustrDllPath;
+    RtlInitUnicodeString(&ustrDllPath, dllPath);
+    ntStatus = FileUtils::LoadFile(&ustrDllPath, &pFileBuffer, &dwFileSize);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("LoadFile failed, ntStatus: 0x%x", ntStatus);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
+        return ntStatus;
+    }
+
+    // shellcode
+    ULONG shellcodeSize = 0;
+    PVOID pShellcodeBuffer = GetShellCodeBuffer(shellcodeSize);
+    if (NULL == pShellcodeBuffer || 0 == shellcodeSize)
+    {
+        LOG_ERROR("GetShellCodeBuffer failed");
+        ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // 参数
+    INJECTPARAM injectParam;
+    RtlZeroMemory(&injectParam, sizeof(INJECTPARAM));
+    injectParam.dwDataLength = dwFileSize;
+    ULONG moduleSize = 0;
+    PVOID pModuleBase = MemoryUtils::GetProcessModuleBase(pEprocess, L"ntdll", &moduleSize);
+    if (NULL == pModuleBase || 0 == moduleSize)
+    {
+        LOG_ERROR("GetProcessModuleBase failed");
+        ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
+    injectParam.fun_LdrGetProcedureAddress = (FUN_LDRGETPROCEDUREADDRESS)MemoryUtils::GetFunctionAddressFromExportTable(pModuleBase, "LdrGetProcedureAddress");
+    injectParam.fun_NtAllocateVirtualMemory = (FUN_NTALLOCATEVIRTUALMEMORY)MemoryUtils::GetFunctionAddressFromExportTable(pModuleBase, "NtAllocateVirtualMemory");
+    injectParam.fun_LdrLoadDll = (FUN_LDRLOADDLL)MemoryUtils::GetFunctionAddressFromExportTable(pModuleBase, "LdrLoadDll");
+    injectParam.fun_RtlInitAnsiString = (FUN_RTLINITANSISTRING)MemoryUtils::GetFunctionAddressFromExportTable(pModuleBase, "RtlInitAnsiString");
+    injectParam.fun_RtlAnsiStringToUnicodeString = (FUN_RTLANSISTRINGTOUNICODESTRING)MemoryUtils::GetFunctionAddressFromExportTable(pModuleBase, "RtlAnsiStringToUnicodeString");
+    injectParam.fun_RtlFreeUnicodeString = (RTLFREEUNICODESTRING)MemoryUtils::GetFunctionAddressFromExportTable(pModuleBase, "RtlFreeUnicodeString");
+    if (NULL == injectParam.fun_LdrGetProcedureAddress ||
+        NULL == injectParam.fun_NtAllocateVirtualMemory ||
+        NULL == injectParam.fun_LdrLoadDll ||
+        NULL == injectParam.fun_RtlInitAnsiString ||
+        NULL == injectParam.fun_RtlAnsiStringToUnicodeString ||
+        NULL == injectParam.fun_RtlFreeUnicodeString)
+    {
+        LOG_ERROR("GetFunctionAddressFromExportTable failed");
+        ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // 申请内存，把Shellcode和DLL数据，和参数复制到目标进程
+    // 安全起见，大小多加0x100
+    SIZE_T totalSize = dwFileSize + 0x100 + shellcodeSize + sizeof(injectParam);
+    PBYTE pStartAddress = NULL;
+    ntStatus = ZwAllocateVirtualMemory(NtCurrentProcess(), (PVOID*)&pStartAddress, 0, &totalSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("ZwAllocateVirtualMemory failed, ntStatus: 0x%x", ntStatus);
+        ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
+        return ntStatus;
+    }
+
+    // 写入dll文件
+    memcpy(pStartAddress, pFileBuffer, dwFileSize);
+    // 写入shellcode
+    PBYTE pShellcodeAddress = pStartAddress + dwFileSize + 0x100;
+    memcpy(pShellcodeAddress, pShellcodeBuffer, shellcodeSize);
+    // 写入参数
+    PBYTE pShellCodeParamAddress = pStartAddress + dwFileSize + 0x100 + shellcodeSize;
+    memcpy(pShellCodeParamAddress, &injectParam, sizeof(injectParam));
+
+    LOG_ERROR("StartAddress: 0x%llx, ShellCodeAddress: 0x%llx, ShellCodeParamAddress: 0x%llx",
+              pStartAddress, pShellcodeAddress, pShellCodeParamAddress);
+
+    ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+    KeUnstackDetachProcess(&apcState);
+    ObDereferenceObject(pEprocess);
+
+
+
+
+
+
+    // 分配APC
+    PKAPC kApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+    if (NULL == kApc)
+    {
+        LOG_ERROR("ExAllocatePoolWithTag failed");
+        ObDereferenceObject(pEthread);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // 初始化APC
+    KeInitializeApc(
+        kApc,
+        pEthread,
+        KAPC_ENVIRONMENT::OriginalApcEnvironment,
+        (PKKERNEL_ROUTINE)mykapc,
+        NULL,
+        (PKNORMAL_ROUTINE)nothing,
+        KernelMode,
+        0
+    );
+
+    // 插入APC
+    KeInsertQueueApc(kApc, pShellcodeAddress, pShellcodeAddress, 0);
+
+    ObDereferenceObject(pEthread);
+
+    return STATUS_SUCCESS;
 }

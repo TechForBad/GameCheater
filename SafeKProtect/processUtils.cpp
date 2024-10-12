@@ -20,7 +20,7 @@ BOOL ProcessUtils::Init(PDRIVER_OBJECT pDriverObject)
     return (g_processNameOffset != 0);
 }
 
-VOID ProcessUtils::GetProcessName(IN PEPROCESS proc, OUT PCHAR procName)
+VOID ProcessUtils::GetProcessName(PEPROCESS proc, PCHAR procName)
 {
     strcpy(procName, (PCHAR)proc + g_processNameOffset);
     return;
@@ -114,22 +114,22 @@ NTSTATUS ProcessUtils::FindPidByName(LPCWSTR processName, PULONG pid)
     return ntStatus;
 }
 
-NTSTATUS ProcessUtils::SuspendTargetThread(IN DWORD tid)
+NTSTATUS ProcessUtils::SuspendTargetThread(DWORD tid)
 {
     return STATUS_UNSUCCESSFUL;
 }
 
-NTSTATUS ProcessUtils::ResumeTargetThread(IN DWORD tid)
+NTSTATUS ProcessUtils::ResumeTargetThread(DWORD tid)
 {
     return STATUS_UNSUCCESSFUL;
 }
 
-NTSTATUS ProcessUtils::SuspendTargetProcess(IN DWORD pid)
+NTSTATUS ProcessUtils::SuspendTargetProcess(DWORD pid)
 {
     return STATUS_UNSUCCESSFUL;
 }
 
-NTSTATUS ProcessUtils::ResumeTargetProcess(IN DWORD pid)
+NTSTATUS ProcessUtils::ResumeTargetProcess(DWORD pid)
 {
     return STATUS_UNSUCCESSFUL;
 }

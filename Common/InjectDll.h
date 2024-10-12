@@ -6,4 +6,7 @@ class InjectDll
 {
 public:
     static bool RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath);
+
+private:
+
 };

@@ -4,9 +4,11 @@
 
 bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 {
+    bool result = false;
+
 	HANDLE hTargetProcess = NULL;
 	PVOID pFileBuffer = NULL;
-	PVOID pShellCodeBuffer = NULL;
+	PVOID pShellcodeBuffer = NULL;
 
 	PBYTE pStartAddress = NULL;
 
@@ -37,14 +39,14 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
         LOG("Dll file size: %d", dwFileSize);
 
         // shellcode
-        DWORD shellCodeSize = 0;
-        pShellCodeBuffer = GetShellCodeBuffer(shellCodeSize);
-        if (NULL == pShellCodeBuffer)
+        DWORD shellcodeSize = 0;
+        pShellcodeBuffer = GetShellCodeBuffer(shellcodeSize);
+        if (NULL == pShellcodeBuffer)
         {
             LOG("GetShellCodeBuffer failed");
             break;
         }
-        LOG("Shellcode size: %d", shellCodeSize);
+        LOG("Shellcode size: %d", shellcodeSize);
 
 		// 参数
         INJECTPARAM injectParam;
@@ -62,6 +64,16 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
         injectParam.fun_RtlInitAnsiString = (FUN_RTLINITANSISTRING)GetProcAddress(hNtdll, "RtlInitAnsiString");
         injectParam.fun_RtlAnsiStringToUnicodeString = (FUN_RTLANSISTRINGTOUNICODESTRING)GetProcAddress(hNtdll, "RtlAnsiStringToUnicodeString");
         injectParam.fun_RtlFreeUnicodeString = (RTLFREEUNICODESTRING)GetProcAddress(hNtdll, "RtlFreeUnicodeString");
+        if (NULL == injectParam.fun_LdrGetProcedureAddress ||
+            NULL == injectParam.fun_NtAllocateVirtualMemory ||
+            NULL == injectParam.fun_LdrLoadDll ||
+            NULL == injectParam.fun_RtlInitAnsiString ||
+            NULL == injectParam.fun_RtlAnsiStringToUnicodeString ||
+            NULL == injectParam.fun_RtlFreeUnicodeString)
+        {
+            LOG("GetProcAddress failed");
+            break;
+        }
 
 #if LOCAL_TEST
         injectParam.lpFileData = pFileBuffer;
@@ -69,7 +81,7 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 #else
         // 申请内存，把Shellcode和DLL数据，和参数复制到目标进程
 		// 安全起见，大小多加0x100
-        SIZE_T totalSize = dwFileSize + 0x100 + shellCodeSize + sizeof(injectParam);
+        SIZE_T totalSize = dwFileSize + 0x100 + shellcodeSize + sizeof(injectParam);
         pStartAddress = (PBYTE)VirtualAllocEx(hTargetProcess, 0, totalSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 		if (NULL == pStartAddress)
 		{
@@ -78,7 +90,7 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 		}
         injectParam.lpFileData = pStartAddress;
         LOG("TotalSize: %d, DllFileSize: %d, ShellCodeSize: %d, ParamSize: %d",
-            totalSize, dwFileSize, shellCodeSize, sizeof(injectParam));
+            totalSize, dwFileSize, shellcodeSize, sizeof(injectParam));
 
 		// 写入dll文件
 		SIZE_T dwWrited = 0;
@@ -88,14 +100,14 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
             break;
 		}
 		// 写入shellcode
-        PBYTE pShellCodeAddress = pStartAddress + dwFileSize + 0x100;
-        if (!WriteProcessMemory(hTargetProcess, pShellCodeAddress, pShellCodeBuffer, shellCodeSize, &dwWrited))
+        PBYTE pShellcodeAddress = pStartAddress + dwFileSize + 0x100;
+        if (!WriteProcessMemory(hTargetProcess, pShellcodeAddress, pShellcodeBuffer, shellcodeSize, &dwWrited))
         {
             LOG("WriteProcessMemory failed");
             break;
         }
 		// 写入参数
-        PBYTE pShellCodeParamAddress = pStartAddress + dwFileSize + 0x100 + shellCodeSize;
+        PBYTE pShellCodeParamAddress = pStartAddress + dwFileSize + 0x100 + shellcodeSize;
         if (!WriteProcessMemory(hTargetProcess, pShellCodeParamAddress, &injectParam, sizeof(injectParam), &dwWrited))
         {
             LOG("WriteProcessMemory failed");
@@ -103,10 +115,10 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
         }
 
         LOG("StartAddress: 0x%llx, ShellCodeAddress: 0x%llx, ShellCodeParamAddress: 0x%llx",
-            pStartAddress, pShellCodeAddress, pShellCodeParamAddress);
+            pStartAddress, pShellcodeAddress, pShellCodeParamAddress);
 
 		// 创建远程线程
-        hRemoteThread = CreateRemoteThread(hTargetProcess, 0, 0, (LPTHREAD_START_ROUTINE)pShellCodeAddress, pShellCodeParamAddress, 0, 0);
+        hRemoteThread = CreateRemoteThread(hTargetProcess, 0, 0, (LPTHREAD_START_ROUTINE)pShellcodeAddress, pShellCodeParamAddress, 0, 0);
 		if (NULL == hRemoteThread)
 		{
             LOG("CreateRemoteThread failed");
@@ -120,6 +132,8 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 
         LOG("Remote Thread Exit, exit code: %d", dwExitCode);
 #endif
+
+        result = true;
 	} while (false);
 
 	if (hRemoteThread)
@@ -132,9 +146,9 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
 		VirtualFreeEx(hTargetProcess, pStartAddress, 0, MEM_FREE);
 	}
 
-	if (pShellCodeBuffer)
+	if (pShellcodeBuffer)
 	{
-		free(pShellCodeBuffer);
+		free(pShellcodeBuffer);
 	}
 
 	if (pFileBuffer)
@@ -147,5 +161,5 @@ bool InjectDll::RemoteInjectDll(DWORD pid, LPCWSTR injectedDllPath)
         CloseHandle(hTargetProcess);
     }
 
-	return true;
+	return result;
 }

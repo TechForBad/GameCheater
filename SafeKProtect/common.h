@@ -8,6 +8,8 @@
 #include "processUtils.h"
 #include "connUtils.h"
 #include "OperDispatcher.h"
+#include "fileUtils.h"
+#include "shellcode.h"
 
 // 内存分配标志
 #define MEM_TAG 'RICH'
@@ -47,3 +49,5 @@ ProbeForWrite(pointer, size, TYPE_ALIGNMENT(BYTE))
 #define ProbeInputBytes(pointer, size)                                        \
 _Pragma("warning(suppress : 6001)")                                           \
 ProbeForRead(pointer, size, TYPE_ALIGNMENT(BYTE))
+
+

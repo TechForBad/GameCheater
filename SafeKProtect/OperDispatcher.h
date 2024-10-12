@@ -51,5 +51,5 @@ private:
     static NTSTATUS GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress);
 
     // 通过创建APC无模块注入dll
-    static NTSTATUS InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCSTR dllPath);
+    static NTSTATUS InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dllPath);
 };
