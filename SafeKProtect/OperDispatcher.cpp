@@ -341,10 +341,9 @@ NTSTATUS OperDispatcher::GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleNam
 
 static void mykapc2(PKAPC Apc, PKNORMAL_ROUTINE NormalRoutine, PVOID NormalContext, PVOID SystemArgument1, PVOID SystemArgument2)
 {
-    ULONG_PTR iswow64;
-
     ExFreePoolWithTag(Apc, MEM_TAG);
 
+    ULONG_PTR iswow64;
     if (ZwQueryInformationProcess(ZwCurrentProcess(), ProcessWow64Information, &iswow64, sizeof(iswow64), NULL) == STATUS_SUCCESS)
     {
 #if (NTDDI_VERSION >= NTDDI_VISTA)	
@@ -357,42 +356,57 @@ static void mykapc2(PKAPC Apc, PKNORMAL_ROUTINE NormalRoutine, PVOID NormalConte
 
 }
 
-static void mykapc(PKAPC Apc, PKNORMAL_ROUTINE NormalRoutine, PVOID NormalContext, PVOID SystemArgument1, PVOID SystemArgument2)
+static void NTAPI KernelKernelRoutine(
+    _In_ PKAPC Apc,
+    _Inout_ PKNORMAL_ROUTINE* NormalRoutine,
+    _Inout_ PVOID* NormalContext,                               // 用户态shellcode的参数地址
+    _Inout_ PVOID* SystemArgument1,                             // 需要执行的用户态shellcode地址
+    _Inout_ PVOID* SystemArgument2
+)
 {
     // kernelmode apc, always gets executed
-    PKAPC kApc;
-    LARGE_INTEGER Timeout;
-
-    kApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
-
     ExFreePoolWithTag(Apc, MEM_TAG);
 
-    if (NULL == kApc)
+    PKAPC userModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+    if (NULL == userModeApc)
     {
         return;
     }
 
     KeInitializeApc(
-        kApc,
-        (PKTHREAD)PsGetCurrentThread(),
-        KAPC_ENVIRONMENT::OriginalApcEnvironment,
-        (PKKERNEL_ROUTINE)mykapc2,
-        NULL,
-        (PKNORMAL_ROUTINE) * (PUINT_PTR)SystemArgument1,
-        UserMode,
-        (PVOID) * (PUINT_PTR)NormalContext
+        userModeApc,                                            // Apc
+        (PKTHREAD)PsGetCurrentThread(),                         // Thread
+        KAPC_ENVIRONMENT::OriginalApcEnvironment,               // Environment
+        (PKKERNEL_ROUTINE)mykapc2,                              // KernelRoutine
+        NULL,                                                   // RundownRoutine
+        (PKNORMAL_ROUTINE) * (PUINT_PTR)SystemArgument1,        // NormalRoutine
+        UserMode,                                               // ApcMode
+        (PVOID) * (PUINT_PTR)NormalContext                      // NormalContext
     );
 
-    KeInsertQueueApc(kApc, (PVOID) * (PUINT_PTR)SystemArgument1, (PVOID) * (PUINT_PTR)SystemArgument2, 0);
+    KeInsertQueueApc(
+        userModeApc,                                            // Apc
+        (PVOID) * (PUINT_PTR)SystemArgument1,                   // SystemArgument1
+        (PVOID) * (PUINT_PTR)SystemArgument2,                   // SystemArgument2
+        0                                                       // Increment
+    );
 
     // wait in usermode (so interruptable by a usermode apc)
+    LARGE_INTEGER Timeout;
     Timeout.QuadPart = 0;
     KeDelayExecutionThread(UserMode, TRUE, &Timeout);
 
     return;
 }
 
-static void nothing(PVOID arg1, PVOID arg2, PVOID arg3)
+static VOID NTAPI KernelRundownRoutine(
+    _In_ PKAPC Apc
+)
+{
+    ExFreePoolWithTag(Apc, MEM_TAG);
+}
+
+static void KernelNormalRoutine(PVOID arg1, PVOID arg2, PVOID arg3)
 {
     return;
 }
@@ -407,8 +421,8 @@ NTSTATUS OperDispatcher::CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe)
         return ntStatus;
     }
 
-    PKAPC kApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
-    if (NULL == kApc)
+    PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+    if (NULL == kernelModeApc)
     {
         LOG_ERROR("ExAllocatePoolWithTag failed");
         ObDereferenceObject(pEthread);
@@ -416,17 +430,22 @@ NTSTATUS OperDispatcher::CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe)
     }
 
     KeInitializeApc(
-        kApc,
-        pEthread,
-        KAPC_ENVIRONMENT::OriginalApcEnvironment,
-        (PKKERNEL_ROUTINE)mykapc,
-        NULL,
-        (PKNORMAL_ROUTINE)nothing,
-        KernelMode,
-        0
+        kernelModeApc,                                  // Apc
+        pEthread,                                       // Thread
+        KAPC_ENVIRONMENT::OriginalApcEnvironment,       // Environment
+        KernelKernelRoutine,                            // KernelRoutine
+        KernelRundownRoutine,                           // RundownRoutine
+        KernelNormalRoutine,                            // NormalRoutine
+        KernelMode,                                     // ApcMode
+        NULL                                            // NormalContext
     );
 
-    KeInsertQueueApc(kApc, addrToExe, addrToExe, 0);
+    KeInsertQueueApc(
+        kernelModeApc,                                  // Apc
+        addrToExe,                                      // SystemArgument1
+        NULL,                                           // SystemArgument2
+        0                                               // Increment
+    );
 
     ObDereferenceObject(pEthread);
     return STATUS_SUCCESS;
@@ -674,36 +693,74 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dll
     KeUnstackDetachProcess(&apcState);
     ObDereferenceObject(pEprocess);
 
-
-
-
-
-
-    // 分配APC
-    PKAPC kApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
-    if (NULL == kApc)
+    // 获取目标进程的一个线程
+    HANDLE targetTid = 0;
+    PSYSTEM_PROCESS_INFO pProcessInfo = (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessesAndThreadsInformation);
+    if (NULL == pProcessInfo)
     {
-        LOG_ERROR("ExAllocatePoolWithTag failed");
-        ObDereferenceObject(pEthread);
+        LOG_ERROR("GetSystemInformation failed");
+        return STATUS_UNSUCCESSFUL;
+    }
+    PSYSTEM_PROCESS_INFO pCurProcessInfo = pProcessInfo;
+    while (pCurProcessInfo->NextEntryOffset)
+    {
+        if (pCurProcessInfo->UniqueProcessId == ULongToHandle(pid))
+        {
+            if (0 == pCurProcessInfo->NumberOfThreads)
+            {
+                break;
+            }
+
+            targetTid = pCurProcessInfo->Threads[0].ClientId.UniqueThread;
+            break;
+        }
+        pCurProcessInfo = (PSYSTEM_PROCESS_INFO)((PUCHAR)pCurProcessInfo + pCurProcessInfo->NextEntryOffset);
+    }
+    ExFreePoolWithTag(pProcessInfo, MEM_TAG);
+    if (NULL == targetTid)
+    {
+        LOG_ERROR("GetSystemInformation failed");
         return STATUS_UNSUCCESSFUL;
     }
 
+    PETHREAD pTargetEthread = NULL;
+    ntStatus = PsLookupThreadByThreadId(targetTid, &pTargetEthread);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("PsLookupThreadByThreadId failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+
+    // 分配APC
+    PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+    if (NULL == kernelModeApc)
+    {
+        LOG_ERROR("ExAllocatePoolWithTag failed");
+        ObDereferenceObject(pTargetEthread);
+        return STATUS_UNSUCCESSFUL;
+    }
+    
     // 初始化APC
     KeInitializeApc(
-        kApc,
-        pEthread,
-        KAPC_ENVIRONMENT::OriginalApcEnvironment,
-        (PKKERNEL_ROUTINE)mykapc,
-        NULL,
-        (PKNORMAL_ROUTINE)nothing,
-        KernelMode,
-        0
+        kernelModeApc,                                  // Apc
+        pTargetEthread,                                 // Thread
+        KAPC_ENVIRONMENT::OriginalApcEnvironment,       // Environment
+        KernelKernelRoutine,                            // KernelRoutine
+        KernelRundownRoutine,                           // RundownRoutine
+        KernelNormalRoutine,                            // NormalRoutine
+        KernelMode,                                     // ApcMode
+        pShellCodeParamAddress                          // NormalContext
     );
 
     // 插入APC
-    KeInsertQueueApc(kApc, pShellcodeAddress, pShellcodeAddress, 0);
+    KeInsertQueueApc(
+        kernelModeApc,                                  // Apc
+        pShellcodeAddress,                              // SystemArgument1
+        NULL,                                           // SystemArgument2
+        0                                               // Increment
+    );
 
-    ObDereferenceObject(pEthread);
+    ObDereferenceObject(pTargetEthread);
 
     return STATUS_SUCCESS;
 }

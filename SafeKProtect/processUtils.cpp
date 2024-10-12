@@ -83,7 +83,7 @@ NTSTATUS ProcessUtils::FindPidByName(LPCWSTR processName, PULONG pid)
         return STATUS_INVALID_PARAMETER;
     }
 
-    PSYSTEM_PROCESS_INFO pProcessInfo = (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessInformation);
+    PSYSTEM_PROCESS_INFO pProcessInfo = (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessesAndThreadsInformation);
     if (NULL == pProcessInfo)
     {
         LOG_ERROR("GetSystemInformation failed");
