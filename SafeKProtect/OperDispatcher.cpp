@@ -126,6 +126,14 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
         );
         break;
     }
+    case COMM::Oper_InjectDllWithNoModuleByAPC:
+    {
+        ntStatus = InjectDllWithNoModuleByAPC(
+            pMsg->input_InjectDllWithNoModuleByAPC.pid,
+            pMsg->input_InjectDllWithNoModuleByAPC.dllPath
+        );
+        break;
+    }
     default:
     {
         LOG_ERROR("Unknown OperCode: 0x%x", pMsg->oper);
@@ -486,22 +494,22 @@ NTSTATUS OperDispatcher::FreeProcessMem(IN DWORD pid, IN PVOID moduleBase)
 
 NTSTATUS OperDispatcher::SuspendTargetThread(IN DWORD tid)
 {
-    return STATUS_UNSUCCESSFUL;
+    return ProcessUtils::SuspendTargetThread(tid);
 }
 
 NTSTATUS OperDispatcher::ResumeTargetThread(IN DWORD tid)
 {
-    return STATUS_UNSUCCESSFUL;
+    return ProcessUtils::ResumeTargetThread(tid);
 }
 
 NTSTATUS OperDispatcher::SuspendTargetProcess(IN DWORD pid)
 {
-    return STATUS_UNSUCCESSFUL;
+    return ProcessUtils::SuspendTargetProcess(pid);
 }
 
 NTSTATUS OperDispatcher::ResumeTargetProcess(IN DWORD pid)
 {
-    return STATUS_UNSUCCESSFUL;
+    return ProcessUtils::ResumeTargetProcess(pid);
 }
 
 NTSTATUS OperDispatcher::GetHandleForProcessID(IN DWORD pid, OUT PHANDLE pProcHandle)
@@ -561,4 +569,9 @@ NTSTATUS OperDispatcher::WritePhysicalMemory(IN PBYTE pUserSrc, IN ULONG writeLe
 NTSTATUS OperDispatcher::GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress)
 {
     return MemoryUtils::GetPhysicalAddress(pid, virtualAddress, pPhysicalAddress);
+}
+
+NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCSTR dllPath)
+{
+
 }

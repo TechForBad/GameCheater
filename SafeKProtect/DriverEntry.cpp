@@ -91,10 +91,10 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING re
 
 	LOG_INFO("Enter DriverEntry");
 
-	// 初始化进程名偏移
-    if (!ProcessUtils::InitGetProcessNameOffset(pDriverObject))
+	// 初始化
+    if (!ProcessUtils::Init(pDriverObject))
     {
-        LOG_ERROR("InitGetProcessNameOffset failed");
+        LOG_ERROR("Init failed");
         return STATUS_UNSUCCESSFUL;
     }
 

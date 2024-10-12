@@ -515,3 +515,28 @@ bool DriverComm::GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID
 
     return true;
 }
+
+bool DriverComm::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCSTR dllPath)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_InjectDllWithNoModuleByAPC;
+    cmsg_.needOutput = false;
+    cmsg_.input_InjectDllWithNoModuleByAPC.pid = pid;
+    strcpy_s(cmsg_.input_InjectDllWithNoModuleByAPC.dllPath, sizeof(cmsg_.input_InjectDllWithNoModuleByAPC.dllPath), dllPath);
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}

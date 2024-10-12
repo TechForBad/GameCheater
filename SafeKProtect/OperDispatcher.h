@@ -49,4 +49,7 @@ private:
 
     // 获取虚拟地址对应的物理地址
     static NTSTATUS GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress);
+
+    // 通过创建APC无模块注入dll
+    static NTSTATUS InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCSTR dllPath);
 };

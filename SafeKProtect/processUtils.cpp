@@ -2,7 +2,7 @@
 
 static ULONG g_processNameOffset = 0;
 
-BOOL ProcessUtils::InitGetProcessNameOffset(PDRIVER_OBJECT pDriverObject)
+BOOL ProcessUtils::Init(PDRIVER_OBJECT pDriverObject)
 {
     const char* curProcName = pDriverObject ? "System" : PROCESS_NAME_IN_EPROCESS_CHEAT_ENGINE;
     size_t curProcNameLen = strlen(curProcName);
@@ -112,6 +112,26 @@ NTSTATUS ProcessUtils::FindPidByName(LPCWSTR processName, PULONG pid)
     }
 
     return ntStatus;
+}
+
+NTSTATUS ProcessUtils::SuspendTargetThread(IN DWORD tid)
+{
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS ProcessUtils::ResumeTargetThread(IN DWORD tid)
+{
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS ProcessUtils::SuspendTargetProcess(IN DWORD pid)
+{
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS ProcessUtils::ResumeTargetProcess(IN DWORD pid)
+{
+    return STATUS_UNSUCCESSFUL;
 }
 
 OB_PREOP_CALLBACK_STATUS OnPreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION Info)

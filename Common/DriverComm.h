@@ -57,6 +57,9 @@ public:
     // 获取虚拟地址对应的物理地址
     bool GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress);
 
+    // 通过创建APC无模块注入dll
+    bool InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCSTR dllPath);
+
 private:
     DriverComm() = default;
     ~DriverComm() = default;
