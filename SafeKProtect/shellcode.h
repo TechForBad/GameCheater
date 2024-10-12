@@ -9,7 +9,6 @@ typedef NTSTATUS(WINAPI* FUN_RTLANSISTRINGTOUNICODESTRING)(_Inout_ PUNICODE_STRI
 typedef NTSTATUS(WINAPI* FUN_LDRLOADDLL)(PWCHAR, PULONG, PUNICODE_STRING, PHANDLE);
 typedef BOOL(APIENTRY* DLLMAIN)(LPVOID, DWORD, LPVOID);
 typedef NTSTATUS(WINAPI* FUN_NTALLOCATEVIRTUALMEMORY)(IN HANDLE ProcessHandle, IN OUT PVOID* BaseAddress, IN ULONG ZeroBits, IN OUT PSIZE_T RegionSize, IN ULONG AllocationType, IN ULONG Protect);
-typedef INT(WINAPI* MESSAGEBOXA)(_In_opt_ HWND hWnd, _In_opt_ LPCSTR lpText, _In_opt_ LPCSTR lpCaption, _In_ UINT uType);
 
 typedef struct _INJECTPARAM
 {
@@ -23,7 +22,6 @@ typedef struct _INJECTPARAM
     FUN_RTLINITANSISTRING            fun_RtlInitAnsiString;
     FUN_RTLANSISTRINGTOUNICODESTRING fun_RtlAnsiStringToUnicodeString;
     RTLFREEUNICODESTRING			 fun_RtlFreeUnicodeString;
-    MESSAGEBOXA						 fun_MessageBoxA;
 } INJECTPARAM;
 
 PVOID GetShellCodeBuffer(ULONG& shellCodeSize);

@@ -11,7 +11,6 @@ static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
     FUN_RTLINITANSISTRING fun_RtlInitAnsiString = InjectParam->fun_RtlInitAnsiString;
     FUN_RTLANSISTRINGTOUNICODESTRING fun_RtlAnsiStringToUnicodeString = InjectParam->fun_RtlAnsiStringToUnicodeString;
     RTLFREEUNICODESTRING fun_RtlFreeUnicodeString = InjectParam->fun_RtlFreeUnicodeString;
-    // MESSAGEBOXA Func_MessageBoxA = InjectParam->fun_MessageBoxA;
 
     DLLMAIN func_DllMain = NULL;
 
@@ -93,7 +92,6 @@ static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
         }
 
         // 复制头和节区头的信息
-        // func_MessageBoxA(NULL, NULL, NULL, MB_OK);
         int Headers_Size = pNtHeader->OptionalHeader.SizeOfHeaders;
         int Sections_Size = pNtHeader->FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER);
         int Move_Size = Headers_Size + Sections_Size;
@@ -233,7 +231,7 @@ static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
         func_DllMain = reinterpret_cast<DLLMAIN>((ULONG_PTR)pMemoryAddress + pNtHeader->OptionalHeader.AddressOfEntryPoint);
         if (func_DllMain)
         {
-            func_DllMain(pMemoryAddress, DLL_PROCESS_ATTACH, pMemoryAddress);
+            func_DllMain(pMemoryAddress, 1, pMemoryAddress);
         }
     } while (false);
 
