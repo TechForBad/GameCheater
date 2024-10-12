@@ -339,7 +339,13 @@ NTSTATUS OperDispatcher::GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleNam
     return STATUS_SUCCESS;
 }
 
-static void mykapc2(PKAPC Apc, PKNORMAL_ROUTINE NormalRoutine, PVOID NormalContext, PVOID SystemArgument1, PVOID SystemArgument2)
+static void NTAPI KernelKernelRoutine2(
+    _In_ PKAPC Apc,
+    _Inout_ PKNORMAL_ROUTINE* NormalRoutine,
+    _Inout_ PVOID* NormalContext,
+    _Inout_ PVOID* SystemArgument1,
+    _Inout_ PVOID* SystemArgument2
+)
 {
     ExFreePoolWithTag(Apc, MEM_TAG);
 
@@ -353,7 +359,6 @@ static void mykapc2(PKAPC Apc, PKNORMAL_ROUTINE NormalRoutine, PVOID NormalConte
         }
 #endif
     }
-
 }
 
 static void NTAPI KernelKernelRoutine(
@@ -377,7 +382,7 @@ static void NTAPI KernelKernelRoutine(
         userModeApc,                                            // Apc
         (PKTHREAD)PsGetCurrentThread(),                         // Thread
         KAPC_ENVIRONMENT::OriginalApcEnvironment,               // Environment
-        (PKKERNEL_ROUTINE)mykapc2,                              // KernelRoutine
+        (PKKERNEL_ROUTINE)KernelKernelRoutine2,                 // KernelRoutine
         NULL,                                                   // RundownRoutine
         (PKNORMAL_ROUTINE) * (PUINT_PTR)SystemArgument1,        // NormalRoutine
         UserMode,                                               // ApcMode
@@ -634,7 +639,7 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dll
     RtlZeroMemory(&injectParam, sizeof(INJECTPARAM));
     injectParam.dwDataLength = dwFileSize;
     ULONG moduleSize = 0;
-    PVOID pModuleBase = MemoryUtils::GetProcessModuleBase(pEprocess, L"ntdll", &moduleSize);
+    PVOID pModuleBase = MemoryUtils::GetProcessModuleBase(pEprocess, L"ntdll.dll", &moduleSize);
     if (NULL == pModuleBase || 0 == moduleSize)
     {
         LOG_ERROR("GetProcessModuleBase failed");
@@ -676,6 +681,7 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dll
         ObDereferenceObject(pEprocess);
         return ntStatus;
     }
+    injectParam.lpFileData = pStartAddress;
 
     // 写入dll文件
     memcpy(pStartAddress, pFileBuffer, dwFileSize);
@@ -686,7 +692,7 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dll
     PBYTE pShellCodeParamAddress = pStartAddress + dwFileSize + 0x100 + shellcodeSize;
     memcpy(pShellCodeParamAddress, &injectParam, sizeof(injectParam));
 
-    LOG_ERROR("StartAddress: 0x%llx, ShellCodeAddress: 0x%llx, ShellCodeParamAddress: 0x%llx",
+    LOG_INFO("StartAddress: 0x%llx, ShellCodeAddress: 0x%llx, ShellCodeParamAddress: 0x%llx",
               pStartAddress, pShellcodeAddress, pShellCodeParamAddress);
 
     ExFreePoolWithTag(pFileBuffer, MEM_TAG);
@@ -746,7 +752,7 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dll
         pTargetEthread,                                 // Thread
         KAPC_ENVIRONMENT::OriginalApcEnvironment,       // Environment
         KernelKernelRoutine,                            // KernelRoutine
-        KernelRundownRoutine,                           // RundownRoutine
+        NULL,                                           // RundownRoutine
         KernelNormalRoutine,                            // NormalRoutine
         KernelMode,                                     // ApcMode
         pShellCodeParamAddress                          // NormalContext
@@ -756,7 +762,7 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dll
     KeInsertQueueApc(
         kernelModeApc,                                  // Apc
         pShellcodeAddress,                              // SystemArgument1
-        NULL,                                           // SystemArgument2
+        pShellcodeAddress,                              // SystemArgument2
         0                                               // Increment
     );
 

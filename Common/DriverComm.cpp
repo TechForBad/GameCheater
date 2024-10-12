@@ -18,6 +18,14 @@ bool DriverComm::Init()
             LOG("LoadDriver failed");
             return false;
         }
+        else
+        {
+            LOG("Load Driver success");
+        }
+    }
+    else
+    {
+        LOG("Driver has already been loaded");
     }
 
     // 构建驱动通信
@@ -26,12 +34,20 @@ bool DriverComm::Init()
         LOG("BuildDriverComm failed");
         return false;
     }
+    else
+    {
+        LOG("Build Driver Comm success");
+    }
 
     // 通信测试
     if (!TestDriverComm())
     {
         LOG("TestDriverComm failed");
         return false;
+    }
+    else
+    {
+        LOG("Test Driver Comm success");
     }
 
     is_init_ = true;

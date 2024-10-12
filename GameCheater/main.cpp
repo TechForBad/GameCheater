@@ -28,14 +28,16 @@ int main()
         return -1;
     }
 
+    /*
     // 获取dwm进程号
     DWORD pid = 0;
     printf("Input Process Id: ");
     std::cin >> pid;
     printf("Output: %d\n", pid);
+    */
 
-    /*
-    if (!tool::GetProcessId(L"dwm.exe", &pid))
+    DWORD pid = 0;
+    if (!tool::GetProcessId(L"Calculator.exe", &pid))
     {
         LOG("GetProcessId failed");
         return -1;
@@ -51,20 +53,30 @@ int main()
     }
     wcscat(dllFilePath, MY_DLL_NAME);
 
+    // 注入dll
+    std::wstring dllFullPath = tool::Format(L"\\??\\%ws", dllFilePath);
+    if (!pDriverComm->InjectDllWithNoModuleByAPC(pid, dllFullPath.c_str()))
+    {
+        LOG("InjectDllWithNoModuleByAPC failed");
+        getchar();
+        return -1;
+    }
+
+    getchar();
+
+    /*
     // 远程注入dll
     if (!InjectDll::RemoteInjectDll(pid, dllFilePath))
     {
         LOG("RemoteInjectDll failed");
         return -1;
     }
-    */
 
     // 获取进程句柄
     HANDLE hProcHandle = NULL;
     if (!pDriverComm->GetHandleForProcessID(pid, &hProcHandle))
     {
         LOG("GetHandleForProcessID failed");
-        getchar();
         return -1;
     }
 
@@ -75,7 +87,6 @@ int main()
     if (!tool::CreateFullDump(hProcHandle, pid, dumpeFilePath))
     {
         LOG("CreateFullDump failed");
-        getchar();
         return -1;
     }
 
@@ -83,8 +94,7 @@ int main()
     {
         CloseHandle(hProcHandle);
     }
-
-    getchar();
+    */
 
     return 0;
 }

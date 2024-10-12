@@ -1,17 +1,15 @@
 ﻿#include "shellcode.h"
 
-static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
+static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* injectParam)
 {
-    LPVOID lpFileData = InjectParam->lpFileData;
-    DWORD  dwDataLength = InjectParam->dwDataLength;
-
-    FUN_LDRGETPROCEDUREADDRESS fun_LdrGetProcedureAddress = InjectParam->fun_LdrGetProcedureAddress;
-    FUN_NTALLOCATEVIRTUALMEMORY fun_NtAllocateVirtualMemory = (InjectParam->fun_NtAllocateVirtualMemory);
-    FUN_LDRLOADDLL fun_LdrLoadDll = (InjectParam->fun_LdrLoadDll);
-    FUN_RTLINITANSISTRING fun_RtlInitAnsiString = InjectParam->fun_RtlInitAnsiString;
-    FUN_RTLANSISTRINGTOUNICODESTRING fun_RtlAnsiStringToUnicodeString = InjectParam->fun_RtlAnsiStringToUnicodeString;
-    RTLFREEUNICODESTRING fun_RtlFreeUnicodeString = InjectParam->fun_RtlFreeUnicodeString;
-    // MESSAGEBOXA Func_MessageBoxA = InjectParam->fun_MessageBoxA;
+    LPVOID lpFileData = injectParam->lpFileData;
+    DWORD  dwDataLength = injectParam->dwDataLength;
+    FUN_LDRGETPROCEDUREADDRESS fun_LdrGetProcedureAddress = injectParam->fun_LdrGetProcedureAddress;
+    FUN_NTALLOCATEVIRTUALMEMORY fun_NtAllocateVirtualMemory = injectParam->fun_NtAllocateVirtualMemory;
+    FUN_LDRLOADDLL fun_LdrLoadDll = injectParam->fun_LdrLoadDll;
+    FUN_RTLINITANSISTRING fun_RtlInitAnsiString = injectParam->fun_RtlInitAnsiString;
+    FUN_RTLANSISTRINGTOUNICODESTRING fun_RtlAnsiStringToUnicodeString = injectParam->fun_RtlAnsiStringToUnicodeString;
+    RTLFREEUNICODESTRING fun_RtlFreeUnicodeString = injectParam->fun_RtlFreeUnicodeString;
 
     DLLMAIN func_DllMain = NULL;
 
@@ -93,7 +91,6 @@ static ULONG_PTR WINAPI MemoryLoadLibrary_Begin(INJECTPARAM* InjectParam)
         }
 
         // 复制头和节区头的信息
-        // func_MessageBoxA(NULL, NULL, NULL, MB_OK);
         int Headers_Size = pNtHeader->OptionalHeader.SizeOfHeaders;
         int Sections_Size = pNtHeader->FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER);
         int Move_Size = Headers_Size + Sections_Size;

@@ -49,7 +49,6 @@ typedef struct _INJECTPARAM
 {
     PVOID lpFileData;   // 我们要注射的DLL内容
     DWORD dwDataLength; // 我们要注射的DLL长度
-    DWORD dwTargetPID;  // 我们要注射的进程PID
 
     FUN_LDRGETPROCEDUREADDRESS       fun_LdrGetProcedureAddress;
     FUN_NTALLOCATEVIRTUALMEMORY      fun_NtAllocateVirtualMemory;
