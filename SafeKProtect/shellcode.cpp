@@ -1,6 +1,6 @@
 #include "shellcode.h"
 
-static void MemoryLoadLibrary_Begin(
+static void __fastcall MemoryLoadLibrary_Begin(
     _In_opt_ PVOID NormalContext,
     _In_opt_ PVOID SystemArgument1,
     _In_opt_ PVOID SystemArgument2

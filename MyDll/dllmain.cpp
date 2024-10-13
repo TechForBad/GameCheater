@@ -6,7 +6,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
     {
     case DLL_PROCESS_ATTACH:
     {
-        OutputDebugStringA("zxcvasdfwerqwer");
+        tool::CreateFullDump(GetCurrentProcess(), GetCurrentProcessId(), "C:\\test.dmp");
         break;
     }
     case DLL_THREAD_ATTACH:

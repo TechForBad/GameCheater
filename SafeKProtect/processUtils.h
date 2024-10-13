@@ -15,6 +15,8 @@ public:
 
     static NTSTATUS FindPidByName(LPCWSTR processName, PULONG pid);
 
+    static PSYSTEM_PROCESS_INFO FindProcessInformation(PSYSTEM_PROCESS_INFO pSystemProcessInfo, ULONG pid);
+
     static NTSTATUS SuspendTargetThread(DWORD tid);
 
     static NTSTATUS ResumeTargetThread(DWORD tid);
@@ -22,6 +24,12 @@ public:
     static NTSTATUS SuspendTargetProcess(DWORD pid);
 
     static NTSTATUS ResumeTargetProcess(DWORD pid);
+
+    // 获取进程的一个可以进行APC注入的线程，调用前需要attach到这个进程，调用后需要释放ETHREAD引用
+    static NTSTATUS FindProcessEthread(PEPROCESS pProcess, PETHREAD* ppThread);
+
+private:
+    static BOOL SkipThread(PETHREAD pThread);
 };
 
 OB_PREOP_CALLBACK_STATUS OnPreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION Info);

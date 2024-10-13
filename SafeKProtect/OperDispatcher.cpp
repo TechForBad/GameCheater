@@ -40,7 +40,8 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
     {
         ntStatus = CreateRemoteAPC(
             pMsg->input_CreateAPC.tid,
-            pMsg->input_CreateAPC.addrToExe
+            pMsg->input_CreateAPC.addrToExe,
+            NULL
         );
         break;
     }
@@ -381,7 +382,7 @@ static void NTAPI KernelKernelRoutine(
     KeInitializeApc(
         userModeApc,                                            // Apc
         (PKTHREAD)PsGetCurrentThread(),                         // Thread
-        KAPC_ENVIRONMENT::OriginalApcEnvironment,               // Environment
+        OriginalApcEnvironment,                                 // Environment
         (PKKERNEL_ROUTINE)KernelKernelRoutine2,                 // KernelRoutine
         NULL,                                                   // RundownRoutine
         (PKNORMAL_ROUTINE) * (PUINT_PTR)SystemArgument1,        // NormalRoutine
@@ -416,7 +417,7 @@ static void KernelNormalRoutine(PVOID arg1, PVOID arg2, PVOID arg3)
     return;
 }
 
-NTSTATUS OperDispatcher::CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe)
+NTSTATUS OperDispatcher::CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe, IN ULONG64 parameter)
 {
     PETHREAD pEthread = NULL;
     NTSTATUS ntStatus = PsLookupThreadByThreadId(ULongToHandle(tid), &pEthread);
@@ -426,11 +427,24 @@ NTSTATUS OperDispatcher::CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe)
         return ntStatus;
     }
 
+    ntStatus = CreateRemoteAPC(pEthread, addrToExe, parameter);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("CreateRemoteAPC failed, ntStatus: 0x%x", ntStatus);
+        ObDereferenceObject(pEthread);
+        return ntStatus;
+    }
+
+    ObDereferenceObject(pEthread);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS OperDispatcher::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN ULONG64 parameter)
+{
     PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
     if (NULL == kernelModeApc)
     {
         LOG_ERROR("ExAllocatePoolWithTag failed");
-        ObDereferenceObject(pEthread);
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -442,17 +456,21 @@ NTSTATUS OperDispatcher::CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe)
         KernelRundownRoutine,                           // RundownRoutine
         KernelNormalRoutine,                            // NormalRoutine
         KernelMode,                                     // ApcMode
-        NULL                                            // NormalContext
+        (PVOID)parameter                                // NormalContext
     );
 
-    KeInsertQueueApc(
+    if (!KeInsertQueueApc(
         kernelModeApc,                                  // Apc
         addrToExe,                                      // SystemArgument1
-        NULL,                                           // SystemArgument2
+        addrToExe,                                      // SystemArgument2
         0                                               // Increment
-    );
+    ))
+    {
+        LOG_ERROR("KeInsertQueueApc failed");
+        ExFreePoolWithTag(kernelModeApc, MEM_TAG);
+        return STATUS_UNSUCCESSFUL;
+    }
 
-    ObDereferenceObject(pEthread);
     return STATUS_SUCCESS;
 }
 
@@ -696,76 +714,31 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dll
               pStartAddress, pShellcodeAddress, pShellCodeParamAddress);
 
     ExFreePoolWithTag(pFileBuffer, MEM_TAG);
-    KeUnstackDetachProcess(&apcState);
-    ObDereferenceObject(pEprocess);
 
     // 获取目标进程的一个线程
-    HANDLE targetTid = 0;
-    PSYSTEM_PROCESS_INFO pProcessInfo = (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessesAndThreadsInformation);
-    if (NULL == pProcessInfo)
-    {
-        LOG_ERROR("GetSystemInformation failed");
-        return STATUS_UNSUCCESSFUL;
-    }
-    PSYSTEM_PROCESS_INFO pCurProcessInfo = pProcessInfo;
-    while (pCurProcessInfo->NextEntryOffset)
-    {
-        if (pCurProcessInfo->UniqueProcessId == ULongToHandle(pid))
-        {
-            if (0 == pCurProcessInfo->NumberOfThreads)
-            {
-                break;
-            }
-
-            targetTid = pCurProcessInfo->Threads[0].ClientId.UniqueThread;
-            break;
-        }
-        pCurProcessInfo = (PSYSTEM_PROCESS_INFO)((PUCHAR)pCurProcessInfo + pCurProcessInfo->NextEntryOffset);
-    }
-    ExFreePoolWithTag(pProcessInfo, MEM_TAG);
-    if (NULL == targetTid)
-    {
-        LOG_ERROR("GetSystemInformation failed");
-        return STATUS_UNSUCCESSFUL;
-    }
-
     PETHREAD pTargetEthread = NULL;
-    ntStatus = PsLookupThreadByThreadId(targetTid, &pTargetEthread);
+    ntStatus = ProcessUtils::FindProcessEthread(pEprocess, &pTargetEthread);
     if (!NT_SUCCESS(ntStatus))
     {
-        LOG_ERROR("PsLookupThreadByThreadId failed, ntStatus: 0x%x", ntStatus);
+        LOG_ERROR("FindProcessThread failed, ntStatus: 0x%x", ntStatus);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
         return ntStatus;
     }
 
-    // 分配APC
-    PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
-    if (NULL == kernelModeApc)
+    // 创建APC
+    ntStatus = CreateRemoteAPC(pTargetEthread, pShellcodeAddress, (ULONG64)pShellCodeParamAddress);
+    if (!NT_SUCCESS(ntStatus))
     {
-        LOG_ERROR("ExAllocatePoolWithTag failed");
+        LOG_ERROR("CreateRemoteAPC failed");
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
         ObDereferenceObject(pTargetEthread);
         return STATUS_UNSUCCESSFUL;
     }
-    
-    // 初始化APC
-    KeInitializeApc(
-        kernelModeApc,                                  // Apc
-        pTargetEthread,                                 // Thread
-        KAPC_ENVIRONMENT::OriginalApcEnvironment,       // Environment
-        KernelKernelRoutine,                            // KernelRoutine
-        NULL,                                           // RundownRoutine
-        KernelNormalRoutine,                            // NormalRoutine
-        KernelMode,                                     // ApcMode
-        pShellCodeParamAddress                          // NormalContext
-    );
 
-    // 插入APC
-    KeInsertQueueApc(
-        kernelModeApc,                                  // Apc
-        pShellcodeAddress,                              // SystemArgument1
-        pShellcodeAddress,                              // SystemArgument2
-        0                                               // Increment
-    );
-
+    KeUnstackDetachProcess(&apcState);
+    ObDereferenceObject(pEprocess);
     ObDereferenceObject(pTargetEthread);
 
     return STATUS_SUCCESS;

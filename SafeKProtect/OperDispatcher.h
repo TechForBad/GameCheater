@@ -18,7 +18,7 @@ private:
     static NTSTATUS GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleName, OUT PVOID* pModuleBase, OUT PULONG moduleSize);
 
     // 创建APC
-    static NTSTATUS CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe);
+    static NTSTATUS CreateRemoteAPC(IN DWORD tid, IN PVOID addrToExe, IN ULONG64 parameter);
 
     // 为进程分配内存
     static NTSTATUS AllocProcessMem(IN DWORD pid, IN SIZE_T memSize, IN ULONG allocationType, IN ULONG protect, OUT PVOID* pModuleBase);
@@ -52,4 +52,7 @@ private:
 
     // 通过创建APC无模块注入dll
     static NTSTATUS InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dllPath);
+
+private:
+    static NTSTATUS CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN ULONG64 parameter);
 };

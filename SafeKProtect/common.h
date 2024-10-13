@@ -49,5 +49,3 @@ ProbeForWrite(pointer, size, TYPE_ALIGNMENT(BYTE))
 #define ProbeInputBytes(pointer, size)                                        \
 _Pragma("warning(suppress : 6001)")                                           \
 ProbeForRead(pointer, size, TYPE_ALIGNMENT(BYTE))
-
-

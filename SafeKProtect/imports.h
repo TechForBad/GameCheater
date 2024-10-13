@@ -211,24 +211,35 @@ typedef struct _LDR_DATA_TABLE_ENTRY
     ULONG TimeDateStamp;
 } LDR_DATA_TABLE_ENTRY, * PLDR_DATA_TABLE_ENTRY;
 
-extern "C" __declspec(dllimport)
+extern "C" NTKERNELAPI
 NTSTATUS NTAPI ZwProtectVirtualMemory(HANDLE ProcessHandle, PVOID* BaseAddress, PULONG ProtectSize, ULONG NewProtect, PULONG OldProtect);
 
-extern "C" NTKERNELAPI PVOID NTAPI RtlFindExportedRoutineByName(_In_ PVOID ImageBase, _In_ PCCH RoutineNam);
+extern "C" NTKERNELAPI
+PVOID NTAPI RtlFindExportedRoutineByName(_In_ PVOID ImageBase, _In_ PCCH RoutineNam);
 
-extern "C" NTSTATUS ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
+extern "C" NTSTATUS
+ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
 
-extern "C" NTKERNELAPI PPEB PsGetProcessPeb(IN PEPROCESS Process);
+extern "C" NTKERNELAPI
+PPEB PsGetProcessPeb(IN PEPROCESS Process);
 
-extern "C" NTSYSAPI PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(PVOID Base);
+extern "C" NTKERNELAPI
+NTSYSAPI PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(PVOID Base);
 
-extern "C" NTSTATUS NTAPI MmCopyVirtualMemory(PEPROCESS SourceProcess, PVOID SourceAddress, PEPROCESS TargetProcess, PVOID TargetAddress, SIZE_T BufferSize, KPROCESSOR_MODE PreviousMode, PSIZE_T ReturnSize);
+extern "C" NTKERNELAPI
+NTSTATUS NTAPI MmCopyVirtualMemory(PEPROCESS SourceProcess, PVOID SourceAddress, PEPROCESS TargetProcess, PVOID TargetAddress, SIZE_T BufferSize, KPROCESSOR_MODE PreviousMode, PSIZE_T ReturnSize);
 
-extern "C" __declspec(dllimport)
+extern "C" NTKERNELAPI
 NTSTATUS NTAPI ZwQueryInformationProcess(IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass, OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength, OUT PULONG ReturnLength OPTIONAL);
 
-extern "C" __declspec(dllimport)
+extern "C" NTKERNELAPI
 NTSTATUS NTAPI NtQueryIntervalProfile(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
+
+extern "C" NTKERNELAPI
+BOOLEAN NTAPI KeTestAlertThread(IN KPROCESSOR_MODE AlertMode);
+
+extern "C" NTKERNELAPI
+PVOID NTAPI PsGetThreadTeb(IN PETHREAD Thread);
 
 typedef
 _Function_class_(KNORMAL_ROUTINE)

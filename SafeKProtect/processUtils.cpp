@@ -114,6 +114,26 @@ NTSTATUS ProcessUtils::FindPidByName(LPCWSTR processName, PULONG pid)
     return ntStatus;
 }
 
+PSYSTEM_PROCESS_INFO ProcessUtils::FindProcessInformation(PSYSTEM_PROCESS_INFO pSystemProcessInfo, ULONG pid)
+{
+    for (;;)
+    {
+        if (pSystemProcessInfo->UniqueProcessId == ULongToHandle(pid))
+        {
+            return pSystemProcessInfo;
+        }
+        else if (pSystemProcessInfo->NextEntryOffset)
+        {
+            pSystemProcessInfo = (PSYSTEM_PROCESS_INFO)((PUCHAR)pSystemProcessInfo + pSystemProcessInfo->NextEntryOffset);
+        }
+        else
+        {
+            break;
+        }
+    }
+    return NULL;
+}
+
 NTSTATUS ProcessUtils::SuspendTargetThread(DWORD tid)
 {
     return STATUS_UNSUCCESSFUL;
@@ -132,6 +152,97 @@ NTSTATUS ProcessUtils::SuspendTargetProcess(DWORD pid)
 NTSTATUS ProcessUtils::ResumeTargetProcess(DWORD pid)
 {
     return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pProcess, PETHREAD* ppThread)
+{
+    PSYSTEM_PROCESS_INFO pSystemProcessInfo =
+        (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessesAndThreadsInformation);
+    if (NULL == pSystemProcessInfo)
+    {
+        LOG_ERROR("GetSystemInformation failed");
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    PSYSTEM_PROCESS_INFO pCurProcessInfo =
+        FindProcessInformation(pSystemProcessInfo, HandleToULong(PsGetProcessId(pProcess)));
+    if (NULL == pCurProcessInfo)
+    {
+        LOG_ERROR("FindProcessInformation failed");
+        ExFreePoolWithTag(pSystemProcessInfo, MEM_TAG);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    PETHREAD pTargetEthread = NULL;
+    for (ULONG i = 0; i < pCurProcessInfo->NumberOfThreads; ++i)
+    {
+        HANDLE tid = pCurProcessInfo->Threads[i].ClientId.UniqueThread;
+
+        if (PsGetCurrentThreadId() == tid)
+        {
+            continue;
+        }
+
+        PETHREAD pEthread = NULL;
+        NTSTATUS ntStatus = PsLookupThreadByThreadId(tid, &pEthread);
+        if (!NT_SUCCESS(ntStatus))
+        {
+            LOG_ERROR("PsLookupThreadByThreadId failed, ntStatus: 0x%x", ntStatus);
+            continue;
+        }
+
+        if (SkipThread(pEthread))
+        {
+            ObDereferenceObject(pEthread);
+            continue;
+        }
+
+        pTargetEthread = pEthread;
+        break;
+    }
+
+    ExFreePoolWithTag(pSystemProcessInfo, MEM_TAG);
+
+    if (NULL == pTargetEthread)
+    {
+        LOG_ERROR("Can not find target thread");
+        return STATUS_NOT_FOUND;
+    }
+
+    *ppThread = pTargetEthread;
+
+    return STATUS_SUCCESS;
+}
+
+BOOL ProcessUtils::SkipThread(PETHREAD pThread)
+{
+    PUCHAR pTeb64 = (PUCHAR)PsGetThreadTeb(pThread);
+
+    // Skip GUI treads.
+    if (*(PULONG64)(pTeb64 + 0x78) != 0)
+    {
+        // Win32ThreadInfo
+        LOG_ERROR("Skipping GUI thread");
+        return TRUE;
+    }
+
+    // Skip threads with no ActivationContext
+    if (*(PULONG64)(pTeb64 + 0x2C8) == 0)
+    {
+        // ActivationContextStackPointer
+        LOG_ERROR("Skipping thread with no ActivationContext");
+        return TRUE;
+    }
+
+    // Skip threads with no TLS pointer
+    if (*(PULONG64)(pTeb64 + 0x58) == 0)
+    {
+        // ThreadLocalStoragePointer
+        LOG_ERROR("Skipping thread with no TLS pointer");
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 OB_PREOP_CALLBACK_STATUS OnPreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION Info)
