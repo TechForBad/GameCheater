@@ -1,5 +1,7 @@
 #include "processUtils.h"
 
+#include "processdef.h"
+
 static ULONG g_processNameOffset = 0;
 
 BOOL ProcessUtils::Init(PDRIVER_OBJECT pDriverObject)
@@ -243,6 +245,76 @@ BOOL ProcessUtils::SkipThread(PETHREAD pThread)
     }
 
     return FALSE;
+}
+
+NTSTATUS ProcessUtils::FindAlertableThread(PEPROCESS pProcess, PETHREAD* pAlertableEthread)
+{
+    PSYSTEM_PROCESS_INFO pSystemProcessInfo =
+        (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessesAndThreadsInformation);
+    if (NULL == pSystemProcessInfo)
+    {
+        LOG_ERROR("GetSystemInformation failed");
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    PSYSTEM_PROCESS_INFO info =
+        ProcessUtils::FindProcessInformation(pSystemProcessInfo, HandleToULong(PsGetProcessId(pProcess)));
+    if (NULL == info)
+    {
+        LOG_ERROR("FindProcessInformation failed");
+        ExFreePoolWithTag(pSystemProcessInfo, MEM_TAG);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    PETHREAD pTargetEthread = NULL;
+    for (ULONG i = 0; i < info->NumberOfThreads; ++i)
+    {
+        HANDLE tid = info->Threads[i].ClientId.UniqueThread;
+
+        if (PsGetCurrentThreadId() == tid)
+        {
+            continue;
+        }
+
+        PETHREAD pCurEthread = NULL;
+        if (!NT_SUCCESS(PsLookupThreadByThreadId(tid, &pCurEthread)))
+        {
+            continue;
+        }
+
+        if (PsIsThreadTerminating(pCurEthread))
+        {
+            ObDereferenceObject(pCurEthread);
+            continue;
+        }
+
+        ULONG guiThread = *(PULONG64)((PUCHAR)pCurEthread + GUI_THREAD_FLAG_OFFSET) & GUI_THREAD_FLAG_BIT;
+        ULONG alertableThread = *(PULONG64)((PUCHAR)pCurEthread + ALERTABLE_THREAD_FLAG_OFFSET) & ALERTABLE_THREAD_FLAG_BIT;
+
+        if (guiThread != 0 ||
+            alertableThread == 0 ||
+            *(PULONG64)((PUCHAR)pCurEthread + THREAD_KERNEL_STACK_OFFSET) == 0 ||
+            *(PULONG64)((PUCHAR)pCurEthread + THREAD_CONTEXT_STACK_POINTER_OFFSET) == 0)
+        {
+            ObDereferenceObject(pCurEthread);
+            continue;
+        }
+
+        pTargetEthread = pCurEthread;
+        break;
+    }
+
+    ExFreePoolWithTag(pSystemProcessInfo, MEM_TAG);
+    
+    if (NULL == pTargetEthread)
+    {
+        LOG_ERROR("Can not find target thread");
+        return STATUS_NOT_FOUND;
+    }
+
+    *pAlertableEthread = pTargetEthread;
+
+    return STATUS_SUCCESS;
 }
 
 OB_PREOP_CALLBACK_STATUS OnPreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION Info)

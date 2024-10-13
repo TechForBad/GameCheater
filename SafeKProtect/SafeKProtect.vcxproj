@@ -149,6 +149,7 @@
     <ClInclude Include="imports.h" />
     <ClInclude Include="memoryUtils.h" />
     <ClInclude Include="OperDispatcher.h" />
+    <ClInclude Include="processDef.h" />
     <ClInclude Include="processUtils.h" />
     <ClInclude Include="shellcode.h" />
   </ItemGroup>

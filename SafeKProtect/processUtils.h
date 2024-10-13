@@ -28,6 +28,9 @@ public:
     // 获取进程的一个可以进行APC注入的线程，调用前需要attach到这个进程，调用后需要释放ETHREAD引用
     static NTSTATUS FindProcessEthread(PEPROCESS pProcess, PETHREAD* ppThread);
 
+    // 获取进程的一个alertable的线程，调用后需要释放ETHREAD引用
+    static NTSTATUS FindAlertableThread(PEPROCESS pProcess, PETHREAD* pAlertableEthread);
+
 private:
     static BOOL SkipThread(PETHREAD pThread);
 };

@@ -28,6 +28,9 @@
     <ClInclude Include="shellcode.h">
       <Filter>Shellcode</Filter>
     </ClInclude>
+    <ClInclude Include="processDef.h">
+      <Filter>ProcessUtils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">
