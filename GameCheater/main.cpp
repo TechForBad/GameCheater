@@ -37,12 +37,12 @@ int main()
     */
 
     DWORD pid = 0;
-    if (!tool::GetProcessId(L"Calculator.exe", &pid))
+    if (!tool::GetProcessId(L"windbg.exe", &pid))
     {
         LOG("GetProcessId failed");
         return -1;
     }
-    LOG("dwm process id: %d", pid);
+    LOG("find process id: %d", pid);
 
     // 获取dll文件全路径
     wchar_t dllFilePath[MAX_PATH] = { 0 };
@@ -58,11 +58,8 @@ int main()
     if (!pDriverComm->InjectDllWithNoModuleByAPC(pid, dllFullPath.c_str()))
     {
         LOG("InjectDllWithNoModuleByAPC failed");
-        getchar();
         return -1;
     }
-
-    getchar();
 
     /*
     // 远程注入dll
