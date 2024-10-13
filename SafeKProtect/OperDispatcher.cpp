@@ -370,6 +370,8 @@ static void NTAPI KernelKernelRoutine(
     _Inout_ PVOID* SystemArgument2
 )
 {
+    LOG_INFO("Create User Mode APC, shellcode addr: %p, param: %p", (PVOID)*SystemArgument1, (PVOID)*NormalContext);
+
     // kernelmode apc, always gets executed
     ExFreePoolWithTag(Apc, MEM_TAG);
 
@@ -740,6 +742,8 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dll
     KeUnstackDetachProcess(&apcState);
     ObDereferenceObject(pEprocess);
     ObDereferenceObject(pTargetEthread);
+
+    LOG_INFO("InjectDllWithNoModuleByAPC called success");
 
     return STATUS_SUCCESS;
 }
