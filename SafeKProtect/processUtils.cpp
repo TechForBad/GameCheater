@@ -218,6 +218,24 @@ NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pProcess, PETHREAD* ppThread
 
 BOOL ProcessUtils::SkipThread(PETHREAD pThread)
 {
+    if (PsIsThreadTerminating(pThread))
+    {
+        LOG_ERROR("Skipping thread with terminating");
+        return TRUE;
+    }
+
+    ULONG guiThread = *(PULONG64)((PUCHAR)pThread + GUI_THREAD_FLAG_OFFSET) & GUI_THREAD_FLAG_BIT;
+    ULONG alertableThread = *(PULONG64)((PUCHAR)pThread + ALERTABLE_THREAD_FLAG_OFFSET) & ALERTABLE_THREAD_FLAG_BIT;
+
+    if (guiThread != 0 ||
+        alertableThread == 0 ||
+        *(PULONG64)((PUCHAR)pThread + THREAD_KERNEL_STACK_OFFSET) == 0 ||
+        *(PULONG64)((PUCHAR)pThread + THREAD_CONTEXT_STACK_POINTER_OFFSET) == 0)
+    {
+        LOG_ERROR("Skipping thread with some error flag");
+        return TRUE;
+    }
+
     PUCHAR pTeb64 = (PUCHAR)PsGetThreadTeb(pThread);
 
     // Skip GUI treads.
