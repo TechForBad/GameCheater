@@ -241,6 +241,17 @@ BOOLEAN NTAPI KeTestAlertThread(IN KPROCESSOR_MODE AlertMode);
 extern "C" NTKERNELAPI
 PVOID NTAPI PsGetThreadTeb(IN PETHREAD Thread);
 
+extern "C" NTKERNELAPI
+HWINEVENTHOOK NtUserSetWinEventHook(
+    IN DWORD           eventMin,
+    IN DWORD           eventMax,
+    IN HMODULE         hmodWinEventProc,
+    IN PUNICODE_STRING pstrLib OPTIONAL,
+    IN PVOID           pfnWinEventProc,
+    IN DWORD           idEventProcess,
+    IN DWORD           idEventThread,
+    IN DWORD           dwFlags);
+
 typedef
 _Function_class_(KNORMAL_ROUTINE)
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -292,7 +303,7 @@ typedef enum _KAPC_ENVIRONMENT
     InsertApcEnvironment
 } KAPC_ENVIRONMENT;
 
-extern "C" __declspec(dllimport)
+extern "C" NTKERNELAPI
 _IRQL_requires_same_
 _When_(Environment != OriginalApcEnvironment,
        __drv_reportError("Caution: "
@@ -311,7 +322,7 @@ KeInitializeApc(
     _In_opt_ PVOID NormalContext
 );
 
-extern "C" __declspec(dllimport)
+extern "C" NTKERNELAPI
 _Must_inspect_result_
 _IRQL_requires_max_(DISPATCH_LEVEL)
 _IRQL_requires_min_(PASSIVE_LEVEL)

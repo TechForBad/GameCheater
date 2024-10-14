@@ -5,6 +5,10 @@
 class MemoryUtils
 {
 public:
+    // 安全拷贝
+    static NTSTATUS SafeCopyMemory_R3_to_R0(ULONG_PTR srcAddr, ULONG_PTR dstAddr, ULONG size);
+    static NTSTATUS SafeCopyMemory_R0_to_R3(PVOID srcAddr, PVOID dstAddr, ULONG size);
+
     static BOOLEAN DataCompare(const BYTE* pData, const BYTE* bMask, const char* szMask);
 
     static BYTE* FindPattern(BYTE* dwAddress, UINT64 dwLen, const BYTE* bMask, char* szMask);

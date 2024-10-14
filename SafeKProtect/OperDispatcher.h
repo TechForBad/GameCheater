@@ -53,6 +53,9 @@ private:
     // 通过创建APC无模块注入dll
     static NTSTATUS InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dllPath);
 
+    // 通过EventHook无模块注入dll
+    static NTSTATUS InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWSTR dllPath);
+
 private:
     static NTSTATUS CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN ULONG64 parameter);
 };

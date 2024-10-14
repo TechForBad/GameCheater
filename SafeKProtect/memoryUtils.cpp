@@ -1,7 +1,165 @@
 #include "memoryUtils.h"
 
-constexpr SIZE_T RETURN_OPCODE = 0xC3;
-constexpr SIZE_T MOV_EAX_OPCODE = 0xB8;
+static constexpr SIZE_T RETURN_OPCODE = 0xC3;
+static constexpr SIZE_T MOV_EAX_OPCODE = 0xB8;
+
+NTSTATUS MemoryUtils::SafeCopyMemory_R3_to_R0(ULONG_PTR srcAddr, ULONG_PTR dstAddr, ULONG size)
+{
+    if (!srcAddr || !dstAddr || !size)
+    {
+        LOG_ERROR("Parameter Error");
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    ULONG nRemainSize = PAGE_SIZE - (srcAddr & 0xFFF);
+    ULONG nCopyedSize = 0;
+
+    while (nCopyedSize < size)
+    {
+        if (size - nCopyedSize < nRemainSize)
+        {
+            nRemainSize = size - nCopyedSize;
+        }
+
+        // 创建MDL
+        PMDL pSrcMdl = IoAllocateMdl((PVOID)(srcAddr & 0xFFFFFFFFFFFFF000), PAGE_SIZE, FALSE, FALSE, NULL);
+        if (NULL == pSrcMdl)
+        {
+            LOG_ERROR("IoAllocateMdl failed");
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        // 锁定内存页面(UserMode代表应用层)
+        __try
+        {
+            MmProbeAndLockPages(pSrcMdl, UserMode, IoReadAccess);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            LOG_ERROR("Trigger Exception 0x%x", GetExceptionCode());
+            IoFreeMdl(pSrcMdl);
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        // 从MDL中得到映射内存地址
+        PVOID pMappedSrc = MmGetSystemAddressForMdlSafe(pSrcMdl, NormalPagePriority);
+        if (NULL == pMappedSrc)
+        {
+            LOG_ERROR("MmGetSystemAddressForMdlSafe failed");
+            MmUnlockPages(pSrcMdl);
+            IoFreeMdl(pSrcMdl);
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        // 拷贝内存
+        __try
+        {
+            RtlCopyMemory((PVOID)dstAddr, (PVOID)((ULONG_PTR)pMappedSrc + (srcAddr & 0xFFF)), nRemainSize);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            LOG_ERROR("Trigger Exception 0x%x", GetExceptionCode());
+            MmUnlockPages(pSrcMdl);
+            IoFreeMdl(pSrcMdl);
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        MmUnlockPages(pSrcMdl);
+        IoFreeMdl(pSrcMdl);
+
+        if (nCopyedSize)
+        {
+            nRemainSize = PAGE_SIZE;
+        }
+
+        nCopyedSize += nRemainSize;
+        srcAddr += nRemainSize;
+        dstAddr += nRemainSize;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS MemoryUtils::SafeCopyMemory_R0_to_R3(PVOID srcAddr, PVOID dstAddr, ULONG size)
+{
+    PMDL pSrcMdl = NULL;
+    PMDL pDstMdl = NULL;
+    PVOID pSrcAddress = NULL;
+    PVOID pDstAddress = NULL;
+
+    // 分配MDL 源地址
+    pSrcMdl = IoAllocateMdl(srcAddr, size, FALSE, FALSE, NULL);
+    if (NULL == pSrcMdl)
+    {
+        LOG_ERROR("IoAllocateMdl failed");
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // 该 MDL 指定非分页虚拟内存缓冲区，并对其进行更新以描述基础物理页
+    MmBuildMdlForNonPagedPool(pSrcMdl);
+
+    // 获取源地址MDL地址
+    pSrcAddress = MmGetSystemAddressForMdlSafe(pSrcMdl, NormalPagePriority);
+    if (NULL == pSrcAddress)
+    {
+        LOG_ERROR("MmGetSystemAddressForMdlSafe failed");
+        IoFreeMdl(pSrcMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // 分配MDL 目标地址
+    pDstMdl = IoAllocateMdl(dstAddr, size, FALSE, FALSE, NULL);
+    if (NULL == pDstMdl)
+    {
+        LOG_ERROR("IoAllocateMdl failed");
+        IoFreeMdl(pSrcMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // 以写入的方式锁定目标MDL
+    __try
+    {
+        MmProbeAndLockPages(pDstMdl, UserMode, IoWriteAccess);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        LOG_ERROR("Trigger Exception 0x%x", GetExceptionCode());
+        IoFreeMdl(pDstMdl);
+        IoFreeMdl(pSrcMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // 获取目标地址MDL地址
+    pDstAddress = MmGetSystemAddressForMdlSafe(pDstMdl, NormalPagePriority);
+    if (NULL == pDstAddress)
+    {
+        LOG_ERROR("MmGetSystemAddressForMdlSafe failed");
+        MmUnlockPages(pDstMdl);
+        IoFreeMdl(pDstMdl);
+        IoFreeMdl(pSrcMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // 拷贝内存
+    __try
+    {
+        RtlCopyMemory(pDstAddress, pSrcAddress, size);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        LOG_ERROR("Trigger Exception 0x%x", GetExceptionCode());
+        MmUnlockPages(pDstMdl);
+        IoFreeMdl(pDstMdl);
+        IoFreeMdl(pSrcMdl);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    MmUnlockPages(pDstMdl);
+    IoFreeMdl(pDstMdl);
+    IoFreeMdl(pSrcMdl);
+
+    return STATUS_SUCCESS;
+}
 
 BOOLEAN MemoryUtils::DataCompare(const BYTE* pData, const BYTE* bMask, const char* szMask)
 {

@@ -55,9 +55,9 @@ int main()
 
     // 注入dll
     std::wstring dllFullPath = tool::Format(L"\\??\\%ws", dllFilePath);
-    if (!pDriverComm->InjectDllWithNoModuleByAPC(pid, dllFullPath.c_str()))
+    if (!pDriverComm->InjectDllWithNoModuleByEventHook(pid, dllFullPath.c_str()))
     {
-        LOG("InjectDllWithNoModuleByAPC failed");
+        LOG("InjectDllWithNoModuleByEventHook failed");
         return -1;
     }
 

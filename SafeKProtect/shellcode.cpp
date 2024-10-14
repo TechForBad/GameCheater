@@ -1,10 +1,6 @@
 #include "shellcode.h"
 
-static void __fastcall MemoryLoadLibrary_Begin(
-    _In_opt_ PVOID NormalContext,
-    _In_opt_ PVOID SystemArgument1,
-    _In_opt_ PVOID SystemArgument2
-)
+static void __fastcall MemoryLoadLibrary_Begin(PVOID NormalContext)
 {
     INJECTPARAM* injectParam = (INJECTPARAM*)NormalContext;
     LPVOID lpFileData = injectParam->lpFileData;

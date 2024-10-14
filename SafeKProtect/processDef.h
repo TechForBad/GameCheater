@@ -1,6 +1,5 @@
 #pragma once
 
-
 // Definitions.
 constexpr SIZE_T MAX_HIDDEN_DRIVERS = 255;
 constexpr SIZE_T ITEM_NOT_FOUND = MAX_HIDDEN_DRIVERS + 1;

@@ -48,8 +48,11 @@ enum Operation : unsigned long
     Oper_WritePhysicalMemory,
     // 获取虚拟地址对应的物理地址
     Oper_GetPhysicalAddress,
+
     // 通过创建APC无模块注入dll
     Oper_InjectDllWithNoModuleByAPC,
+    // 通过EventHook无模块注入dll
+    Oper_InjectDllWithNoModuleByEventHook,
 };
 
 #pragma pack(1)
@@ -195,6 +198,13 @@ typedef struct _CMSG
             DWORD pid;
             WCHAR dllPath[MAX_PATH];
         } input_InjectDllWithNoModuleByAPC;
+
+        // 通过EventHook无模块注入dll
+        struct Input_InjectDllWithNoModuleByEventHook
+        {
+            DWORD pid;
+            WCHAR dllPath[MAX_PATH];
+        } input_InjectDllWithNoModuleByEventHook;
     };
 } CMSG, * PCMSG;
 #pragma pack()

@@ -60,6 +60,9 @@ public:
     // 通过创建APC无模块注入dll
     bool InjectDllWithNoModuleByAPC(IN DWORD pid, IN LPCWSTR dllPath);
 
+    // 通过EventHook无模块注入dll
+    bool InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWSTR dllPath);
+
 private:
     DriverComm() = default;
     ~DriverComm() = default;

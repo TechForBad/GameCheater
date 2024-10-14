@@ -31,6 +31,10 @@ public:
     // 获取进程的一个alertable的线程，调用后需要释放ETHREAD引用
     static NTSTATUS FindAlertableThread(PEPROCESS pProcess, PETHREAD* pAlertableEthread);
 
+    using Fun_Shellcode = void(__fastcall*)(PVOID NormalContext);
+    using InjectShellcodeCallback = NTSTATUS(*)(PEPROCESS pEprocess, Fun_Shellcode pShellcodeAddress, PBYTE pShellCodeParamAddress, SIZE_T totalSize);
+    static NTSTATUS GenerateShellcode(DWORD pid, LPCWSTR dllPath, InjectShellcodeCallback callback);
+
 private:
     static BOOL SkipThread(PETHREAD pThread);
 };
