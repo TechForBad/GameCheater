@@ -659,6 +659,10 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWS
         dllPath,
         [](PEPROCESS pEprocess, ProcessUtils::Fun_Shellcode pShellcodeAddress, PBYTE pShellCodeParamAddress, SIZE_T totalSize)->NTSTATUS
     {
+        //auto target_process_hwnd = utils::get_hwnd_of_process_id(target_process_id); // HWND needed for hook
+        //auto nt_dll = LoadLibraryA(xor_a("ntdll.dll"));
+        //auto thread_id = GetWindowThreadProcessId(target_process_hwnd, 0); // also needed for hook
+        //auto win_event_hook = SetWinEventHook(EVENT_MIN, EVENT_MAX, nt_dll, (WINEVENTPROC)allocated_shellcode, target_process_id, thread_id, WINEVENT_INCONTEXT);
         // NtUserSetWinEventHook(0, 0, NULL, NULL, NULL, 0, 0, 0);
         return STATUS_SUCCESS;
     });
