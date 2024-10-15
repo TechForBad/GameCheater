@@ -3,6 +3,32 @@
 static constexpr SIZE_T RETURN_OPCODE = 0xC3;
 static constexpr SIZE_T MOV_EAX_OPCODE = 0xB8;
 
+__inline NTSTATUS copy_memory(PEPROCESS src_proc, PEPROCESS target_proc, PVOID src, PVOID dst, SIZE_T size)
+{
+    SIZE_T bytes;
+    return MmCopyVirtualMemory(target_proc, src, src_proc, dst, size, UserMode, &bytes);
+}
+
+NTSTATUS KeReadVirtualMemory(PEPROCESS Process, PVOID SourceAddress, PVOID TargetAddress, SIZE_T Size)
+{
+    SIZE_T Bytes;
+    if (NT_SUCCESS(MmCopyVirtualMemory(Process, SourceAddress, PsGetCurrentProcess(),
+                                       TargetAddress, Size, KernelMode, &Bytes)))
+        return STATUS_SUCCESS;
+    else
+        return STATUS_ACCESS_DENIED;
+}
+
+NTSTATUS KeWriteVirtualMemory(PEPROCESS Process, PVOID SourceAddress, PVOID TargetAddress, SIZE_T Size)
+{
+    SIZE_T Bytes;
+    if (NT_SUCCESS(MmCopyVirtualMemory(PsGetCurrentProcess(), SourceAddress, Process,
+                                       TargetAddress, Size, KernelMode, &Bytes)))
+        return STATUS_SUCCESS;
+    else
+        return STATUS_ACCESS_DENIED;
+}
+
 NTSTATUS MemoryUtils::SafeCopyMemory_R3_to_R0(ULONG_PTR srcAddr, ULONG_PTR dstAddr, ULONG size)
 {
     if (!srcAddr || !dstAddr || !size)
