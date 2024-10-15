@@ -10,6 +10,7 @@
 #include "fileUtils.h"
 #include "apcUtils.h"
 #include "shellcode.h"
+#include "setCtxCall.h"
 #include "OperDispatcher.h"
 
 // 内存分配标志
@@ -51,6 +52,54 @@ ProbeForWrite(pointer, size, TYPE_ALIGNMENT(BYTE))
 _Pragma("warning(suppress : 6001)")                                           \
 ProbeForRead(pointer, size, TYPE_ALIGNMENT(BYTE))
 
-VOID WriteEnable();
+#define inl __forceinline
 
-VOID WriteDisable();
+inl VOID WriteEnable()
+{
+    UINT64 cr0 = __readcr0();
+    cr0 &= 0xfffffffffffeffff;
+    __writecr0(cr0);
+    _disable();
+}
+
+inl VOID WriteDisable()
+{
+    UINT64 cr0 = __readcr0();
+    cr0 |= 0x10000;
+    _enable();
+    __writecr0(cr0);
+}
+
+inl KTRAP_FRAME* PsGetTrapFrame(PETHREAD Thread = (PETHREAD)__readgsqword(0x188))
+{
+    return *(KTRAP_FRAME**)((ULONG64)Thread + 0x90);
+}
+
+inl void PsSetTrapFrame(PETHREAD Thread, KTRAP_FRAME* tf)
+{
+    *(KTRAP_FRAME**)((ULONG64)Thread + 0x90) = tf;
+}
+
+inl BOOLEAN IsProcessExit(PEPROCESS epro)
+{
+    if (!epro)
+    {
+        return TRUE;
+    }
+
+    return PsGetProcessExitStatus(epro) != STATUS_PENDING;
+}
+
+inl void KSleep(LONG milliseconds)
+{
+    LARGE_INTEGER interval;
+    interval.QuadPart = -(10000 * milliseconds);  // convert milliseconds to 100 nanosecond intervals
+    KeDelayExecutionThread(KernelMode, FALSE, &interval);
+}
+
+PVOID GetCurrentProcessModule(const char* ModName, ULONG* ModSize = 0, bool force64 = 1);
+
+inl PVOID GetModuleHandle(const char* ModName)
+{
+    return GetCurrentProcessModule(ModName);
+}

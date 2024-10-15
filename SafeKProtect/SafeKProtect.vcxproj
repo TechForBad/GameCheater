@@ -140,6 +140,7 @@
     <ClCompile Include="memoryUtils.cpp" />
     <ClCompile Include="OperDispatcher.cpp" />
     <ClCompile Include="processUtils.cpp" />
+    <ClCompile Include="setCtxCall.cpp" />
     <ClCompile Include="shellcode.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -153,6 +154,7 @@
     <ClInclude Include="OperDispatcher.h" />
     <ClInclude Include="processDef.h" />
     <ClInclude Include="processUtils.h" />
+    <ClInclude Include="setCtxCall.h" />
     <ClInclude Include="shellcode.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

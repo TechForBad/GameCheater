@@ -211,46 +211,84 @@ typedef struct _LDR_DATA_TABLE_ENTRY
     ULONG TimeDateStamp;
 } LDR_DATA_TABLE_ENTRY, * PLDR_DATA_TABLE_ENTRY;
 
-extern "C" NTKERNELAPI
-NTSTATUS NTAPI ZwProtectVirtualMemory(HANDLE ProcessHandle, PVOID* BaseAddress, PULONG ProtectSize, ULONG NewProtect, PULONG OldProtect);
+extern "C"
+{
+    NTKERNELAPI NTSTATUS NTAPI ZwProtectVirtualMemory(
+        HANDLE ProcessHandle,
+        PVOID* BaseAddress,
+        PULONG ProtectSize,
+        ULONG NewProtect,
+        PULONG OldProtect
+    );
 
-extern "C" NTKERNELAPI
-PVOID NTAPI RtlFindExportedRoutineByName(_In_ PVOID ImageBase, _In_ PCCH RoutineNam);
+    NTKERNELAPI PVOID NTAPI RtlFindExportedRoutineByName(_In_ PVOID ImageBase, _In_ PCCH RoutineNam);
 
-extern "C" NTSTATUS
-ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
+    extern "C" NTSTATUS ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
 
-extern "C" NTKERNELAPI
-PPEB PsGetProcessPeb(IN PEPROCESS Process);
+    NTKERNELAPI PPEB PsGetProcessPeb(IN PEPROCESS Process);
 
-extern "C" NTKERNELAPI
-NTSYSAPI PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(PVOID Base);
+    NTKERNELAPI PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(PVOID Base);
 
-extern "C" NTKERNELAPI
-NTSTATUS NTAPI MmCopyVirtualMemory(PEPROCESS SourceProcess, PVOID SourceAddress, PEPROCESS TargetProcess, PVOID TargetAddress, SIZE_T BufferSize, KPROCESSOR_MODE PreviousMode, PSIZE_T ReturnSize);
+    NTKERNELAPI NTSTATUS NTAPI MmCopyVirtualMemory(
+        PEPROCESS SourceProcess,
+        PVOID SourceAddress,
+        PEPROCESS TargetProcess,
+        PVOID TargetAddress,
+        SIZE_T BufferSize,
+        KPROCESSOR_MODE PreviousMode,
+        PSIZE_T ReturnSize
+    );
 
-extern "C" NTKERNELAPI
-NTSTATUS NTAPI ZwQueryInformationProcess(IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass, OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength, OUT PULONG ReturnLength OPTIONAL);
+    NTKERNELAPI NTSTATUS NTAPI ZwQueryInformationProcess(
+        IN HANDLE ProcessHandle,
+        IN PROCESSINFOCLASS ProcessInformationClass,
+        OUT PVOID ProcessInformation,
+        IN ULONG ProcessInformationLength,
+        OUT PULONG ReturnLength OPTIONAL
+    );
 
-extern "C" NTKERNELAPI
-NTSTATUS NTAPI NtQueryIntervalProfile(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
+    NTKERNELAPI NTSTATUS NTAPI NtQueryIntervalProfile(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
 
-extern "C" NTKERNELAPI
-BOOLEAN NTAPI KeTestAlertThread(IN KPROCESSOR_MODE AlertMode);
+    NTKERNELAPI BOOLEAN NTAPI KeTestAlertThread(IN KPROCESSOR_MODE AlertMode);
 
-extern "C" NTKERNELAPI
-PVOID NTAPI PsGetThreadTeb(IN PETHREAD Thread);
+    NTKERNELAPI PVOID NTAPI PsGetThreadTeb(IN PETHREAD Thread);
 
-extern "C" NTKERNELAPI
-HWINEVENTHOOK NtUserSetWinEventHook(
-    IN DWORD           eventMin,
-    IN DWORD           eventMax,
-    IN HMODULE         hmodWinEventProc,
-    IN PUNICODE_STRING pstrLib OPTIONAL,
-    IN PVOID           pfnWinEventProc,
-    IN DWORD           idEventProcess,
-    IN DWORD           idEventThread,
-    IN DWORD           dwFlags);
+    NTKERNELAPI HWINEVENTHOOK NtUserSetWinEventHook(
+        IN DWORD           eventMin,
+        IN DWORD           eventMax,
+        IN HMODULE         hmodWinEventProc,
+        IN PUNICODE_STRING pstrLib OPTIONAL,
+        IN PVOID           pfnWinEventProc,
+        IN DWORD           idEventProcess,
+        IN DWORD           idEventThread,
+        IN DWORD           dwFlags
+    );
+
+    NTKERNELAPI PPEB64 PsGetProcessPeb(
+        _In_ PEPROCESS Process
+    );
+
+    NTKERNELAPI PPEB32 PsGetProcessWow64Process(
+        _In_ PEPROCESS  Process
+    );
+
+    PRUNTIME_FUNCTION NTAPI RtlLookupFunctionEntry(
+        _In_ DWORD64 ControlPc,
+        _Out_ PDWORD64 ImageBase,
+        _Inout_opt_ PVOID HistoryTable
+    );
+
+    PEXCEPTION_ROUTINE NTAPI RtlVirtualUnwind(
+        _In_ DWORD HandlerType,
+        _In_ DWORD64 ImageBase,
+        _In_ DWORD64 ControlPc,
+        _In_ PRUNTIME_FUNCTION FunctionEntry,
+        _Inout_ PCONTEXT ContextRecord,
+        _Out_ PVOID* HandlerData,
+        _Out_ PDWORD64 EstablisherFrame,
+        _Inout_opt_ PKNONVOLATILE_CONTEXT_POINTERS ContextPointers
+    );
+}
 
 typedef
 _Function_class_(KNORMAL_ROUTINE)
@@ -303,7 +341,7 @@ typedef enum _KAPC_ENVIRONMENT
     InsertApcEnvironment
 } KAPC_ENVIRONMENT;
 
-extern "C" NTKERNELAPI
+NTKERNELAPI
 _IRQL_requires_same_
 _When_(Environment != OriginalApcEnvironment,
        __drv_reportError("Caution: "
@@ -322,7 +360,7 @@ KeInitializeApc(
     _In_opt_ PVOID NormalContext
 );
 
-extern "C" NTKERNELAPI
+NTKERNELAPI
 _Must_inspect_result_
 _IRQL_requires_max_(DISPATCH_LEVEL)
 _IRQL_requires_min_(PASSIVE_LEVEL)
@@ -421,3 +459,184 @@ using Fun_MiniDumpWriteDump = BOOL(__stdcall*)(
     _In_opt_ PVOID UserStreamParam,
     _In_opt_ PVOID CallbackParam
     );
+
+typedef struct _KSTACK_CONTROL
+{
+    ULONGLONG StackBase;                                                    //0x0
+    union
+    {
+        ULONGLONG ActualLimit;                                              //0x8
+        ULONGLONG StackExpansion : 1;                                         //0x8
+    };
+    struct
+    {
+        ULONGLONG StackBase;                                                    //0x10
+        ULONGLONG StackLimit;                                                   //0x18
+        ULONGLONG KernelStack;                                                  //0x20
+        ULONGLONG InitialStack;                                                 //0x28
+        ULONGLONG KernelShadowStackBase;                                        //0x30
+        ULONGLONG KernelShadowStackLimit;										//0x38
+        ULONGLONG KernelShadowStack;                                            //0x40
+        ULONGLONG KernelShadowStackInitial;                                     //0x48
+    } Previous;
+}KERNEL_STACK_CONTROL, KSTACK_CONTROL, * PKERNEL_STACK_CONTROL, * PKSTACK_CONTROL;
+
+#define KTRAP_FRAME_LENGTH sizeof(KTRAP_FRAME)
+
+typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY RUNTIME_FUNCTION, * PRUNTIME_FUNCTION;
+
+typedef struct _KNONVOLATILE_CONTEXT_POINTERS
+{
+    union
+    {
+        PM128A FloatingContext[16];
+        struct
+        {
+            PM128A Xmm0;
+            PM128A Xmm1;
+            PM128A Xmm2;
+            PM128A Xmm3;
+            PM128A Xmm4;
+            PM128A Xmm5;
+            PM128A Xmm6;
+            PM128A Xmm7;
+            PM128A Xmm8;
+            PM128A Xmm9;
+            PM128A Xmm10;
+            PM128A Xmm11;
+            PM128A Xmm12;
+            PM128A Xmm13;
+            PM128A Xmm14;
+            PM128A Xmm15;
+        };
+    };
+
+    union
+    {
+        PULONG64 IntegerContext[16];
+        struct
+        {
+            PULONG64 Rax;
+            PULONG64 Rcx;
+            PULONG64 Rdx;
+            PULONG64 Rbx;
+            PULONG64 Rsp;
+            PULONG64 Rbp;
+            PULONG64 Rsi;
+            PULONG64 Rdi;
+            PULONG64 R8;
+            PULONG64 R9;
+            PULONG64 R10;
+            PULONG64 R11;
+            PULONG64 R12;
+            PULONG64 R13;
+            PULONG64 R14;
+            PULONG64 R15;
+        };
+    };
+
+} KNONVOLATILE_CONTEXT_POINTERS, * PKNONVOLATILE_CONTEXT_POINTERS;
+
+typedef struct _PEB32
+{
+    UCHAR InheritedAddressSpace;
+    UCHAR ReadImageFileExecOptions;
+    UCHAR BeingDebugged;
+    UCHAR Spare;
+    ULONG Mutant;
+    ULONG ImageBaseAddress;
+    ULONG/*PPEB_LDR_DATA32*/ Ldr;
+    ULONG ProcessParameters;
+} PEB32, * PPEB32;
+
+typedef struct _PEB64
+{
+    UCHAR InheritedAddressSpace;
+    UCHAR ReadImageFileExecOptions;
+    UCHAR BeingDebugged;
+    UCHAR Spare;
+    UCHAR Padding0[4];
+    ULONG64 Mutant;
+    ULONG64 ImageBaseAddress;
+    ULONG64/*PPEB_LDR_DATA64*/ Ldr;
+    RTL_USER_PROCESS_PARAMETERS* ProcessParameters;
+} PEB64, * PPEB64;
+
+
+typedef struct _PEB_LDR_DATA32
+{
+    ULONG Length;
+    UCHAR Initialized;
+    ULONG SsHandle;
+    LIST_ENTRY32 InLoadOrderModuleList;
+    LIST_ENTRY32 InMemoryOrderModuleList;
+    LIST_ENTRY32 InInitializationOrderModuleList;
+    ULONG EntryInProgress;
+} PEB_LDR_DATA32, * PPEB_LDR_DATA32;
+
+typedef struct _LDR_DATA_TABLE_ENTRY32
+{
+    LIST_ENTRY32 InLoadOrderLinks;
+    LIST_ENTRY32 InMemoryOrderLinks;
+    LIST_ENTRY32 InInitializationOrderLinks;
+    ULONG DllBase;
+    ULONG EntryPoint;
+    ULONG SizeOfImage;
+    UNICODE_STRING32 FullDllName;
+    UNICODE_STRING32 BaseDllName;
+    ULONG Flags;
+    USHORT LoadCount;
+    USHORT TlsIndex;
+    LIST_ENTRY32 HashLinks;
+    ULONG SectionPointer;
+    ULONG CheckSum;
+    ULONG TimeDateStamp;
+    ULONG LoadedImports;
+    ULONG EntryPointActivationContext;
+    ULONG PatchInformation;
+    LIST_ENTRY32 ForwarderLinks;
+    LIST_ENTRY32 ServiceTagLinks;
+    LIST_ENTRY32 StaticLinks;
+    ULONG ContextInformation;
+    ULONG OriginalBase;
+    LARGE_INTEGER LoadTime;
+} LDR_DATA_TABLE_ENTRY32, * PLDR_DATA_TABLE_ENTRY32;
+
+typedef struct _PEB_LDR_DATA64
+{
+    ULONG Length;
+    UCHAR Initialized;
+    ULONG64 SsHandle;
+    LIST_ENTRY64 InLoadOrderModuleList;
+    LIST_ENTRY64 InMemoryOrderModuleList;
+    LIST_ENTRY64 InInitializationOrderModuleList;
+    ULONG64 EntryInProgress;
+} PEB_LDR_DATA64, * PPEB_LDR_DATA64;
+
+typedef struct _LDR_DATA_TABLE_ENTRY64
+{
+    LIST_ENTRY64 InLoadOrderLinks;
+    LIST_ENTRY64 InMemoryOrderLinks;
+    LIST_ENTRY64 InInitializationOrderLinks;
+    ULONG64 DllBase;
+    ULONG64 EntryPoint;
+    ULONG64 SizeOfImage;
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    ULONG Flags;
+    USHORT LoadCount;
+    USHORT TlsIndex;
+    LIST_ENTRY64 HashLinks;
+    ULONG64 SectionPointer;
+    ULONG64 CheckSum;
+    ULONG64 TimeDateStamp;
+    ULONG64 LoadedImports;
+    ULONG64 EntryPointActivationContext;
+    ULONG64 PatchInformation;
+    LIST_ENTRY64 ForwarderLinks;
+    LIST_ENTRY64 ServiceTagLinks;
+    LIST_ENTRY64 StaticLinks;
+    ULONG64 ContextInformation;
+    ULONG64 OriginalBase;
+    LARGE_INTEGER LoadTime;
+} LDR_DATA_TABLE_ENTRY64, * PLDR_DATA_TABLE_ENTRY64;

@@ -34,6 +34,9 @@
     <ClInclude Include="apcUtils.h">
       <Filter>ApcUtils</Filter>
     </ClInclude>
+    <ClInclude Include="setCtxCall.h">
+      <Filter>ApcUtils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">
@@ -93,6 +96,9 @@
       <Filter>Shellcode</Filter>
     </ClCompile>
     <ClCompile Include="apcUtils.cpp">
+      <Filter>ApcUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="setCtxCall.cpp">
       <Filter>ApcUtils</Filter>
     </ClCompile>
   </ItemGroup>
