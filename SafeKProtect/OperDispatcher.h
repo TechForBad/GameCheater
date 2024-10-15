@@ -56,6 +56,9 @@ private:
     // 通过EventHook无模块注入dll
     static NTSTATUS InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWSTR dllPath);
 
+    // 为指定进程创建full dump
+    static NTSTATUS ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath);
+
 private:
     static NTSTATUS CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN ULONG64 parameter);
 };

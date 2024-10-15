@@ -63,6 +63,9 @@ public:
     // 通过EventHook无模块注入dll
     bool InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWSTR dllPath);
 
+    // 为指定进程创建full dump
+    bool ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath);
+
 private:
     DriverComm() = default;
     ~DriverComm() = default;

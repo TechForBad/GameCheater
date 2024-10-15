@@ -31,6 +31,9 @@
     <ClInclude Include="processDef.h">
       <Filter>ProcessUtils</Filter>
     </ClInclude>
+    <ClInclude Include="apcUtils.h">
+      <Filter>ApcUtils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">
@@ -60,6 +63,9 @@
     <Filter Include="Shellcode">
       <UniqueIdentifier>{fed9bcbb-b026-47da-abe9-4445fd32f4d2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ApcUtils">
+      <UniqueIdentifier>{1056f3e4-6cca-48b0-8c78-2401ec16d379}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DriverEntry.cpp">
@@ -85,6 +91,9 @@
     </ClCompile>
     <ClCompile Include="shellcode.cpp">
       <Filter>Shellcode</Filter>
+    </ClCompile>
+    <ClCompile Include="apcUtils.cpp">
+      <Filter>ApcUtils</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

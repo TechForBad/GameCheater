@@ -589,3 +589,32 @@ bool DriverComm::InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWSTR dllPa
 
     return true;
 }
+
+bool DriverComm::ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_ProcessCreateFullDump;
+    cmsg_.needOutput = false;
+    cmsg_.input_ProcessCreateFullDump.pid = pid;
+    wcscpy_s(
+        cmsg_.input_ProcessCreateFullDump.dumpPath,
+        sizeof(cmsg_.input_ProcessCreateFullDump.dumpPath) / sizeof(WCHAR),
+        dumpPath
+    );
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}

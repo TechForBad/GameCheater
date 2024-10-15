@@ -53,6 +53,9 @@ enum Operation : unsigned long
     Oper_InjectDllWithNoModuleByAPC,
     // 通过EventHook无模块注入dll
     Oper_InjectDllWithNoModuleByEventHook,
+
+    // 为指定进程创建full dump
+    Oper_ProcessCreateFullDump,
 };
 
 #pragma pack(1)
@@ -205,6 +208,13 @@ typedef struct _CMSG
             DWORD pid;
             WCHAR dllPath[MAX_PATH];
         } input_InjectDllWithNoModuleByEventHook;
+
+        // 为指定进程创建full dump
+        struct Input_ProcessCreateFullDump
+        {
+            DWORD pid;
+            WCHAR dumpPath[MAX_PATH];
+        } input_ProcessCreateFullDump;
     };
 } CMSG, * PCMSG;
 #pragma pack()

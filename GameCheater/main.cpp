@@ -34,6 +34,22 @@ int main()
     std::cin >> pid;
     printf("Output: %d\n", pid);
 
+    // 获取dll文件全路径
+    wchar_t dumpPath[MAX_PATH] = { 0 };
+    if (!tool::GetCurrentModuleDirPath(dumpPath))
+    {
+        LOG("GetCurrentModuleDirPath failed");
+        return -1;
+    }
+    wcscat(dumpPath, L"test.dmp");
+
+    // 生成dump
+    if (!pDriverComm->ProcessCreateFullDump(pid, dumpPath))
+    {
+        LOG("ProcessCreateFullDump failed");
+        return -1;
+    }
+
     /*
     DWORD pid = 0;
     if (!tool::GetProcessId(L"windbg.exe", &pid))
@@ -44,6 +60,7 @@ int main()
     LOG("find process id: %d", pid);
     */
 
+    /*
     // 获取dll文件全路径
     wchar_t dllFilePath[MAX_PATH] = { 0 };
     if (!tool::GetCurrentModuleDirPath(dllFilePath))
@@ -60,6 +77,7 @@ int main()
         LOG("InjectDllWithNoModuleByEventHook failed");
         return -1;
     }
+    */
 
     /*
     // 远程注入dll

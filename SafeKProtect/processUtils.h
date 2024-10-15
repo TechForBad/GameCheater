@@ -26,10 +26,10 @@ public:
     static NTSTATUS ResumeTargetProcess(DWORD pid);
 
     // 获取进程的一个可以进行APC注入的线程，调用前需要attach到这个进程，调用后需要释放ETHREAD引用
-    static NTSTATUS FindProcessEthread(PEPROCESS pProcess, PETHREAD* ppThread);
+    static NTSTATUS FindProcessEthread(PEPROCESS pEprocess, PETHREAD* ppThread);
 
     // 获取进程的一个alertable的线程，调用后需要释放ETHREAD引用
-    static NTSTATUS FindAlertableThread(PEPROCESS pProcess, PETHREAD* pAlertableEthread);
+    static NTSTATUS FindAlertableThread(PEPROCESS pEprocess, PETHREAD* pAlertableEthread);
 
     using Fun_Shellcode = void(__fastcall*)(PVOID NormalContext);
     using InjectShellcodeCallback = NTSTATUS(*)(PEPROCESS pEprocess, Fun_Shellcode pShellcodeAddress, PBYTE pShellCodeParamAddress, SIZE_T totalSize);

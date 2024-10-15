@@ -156,7 +156,7 @@ NTSTATUS ProcessUtils::ResumeTargetProcess(DWORD pid)
     return STATUS_UNSUCCESSFUL;
 }
 
-NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pProcess, PETHREAD* ppThread)
+NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pEprocess, PETHREAD* ppThread)
 {
     PSYSTEM_PROCESS_INFO pSystemProcessInfo =
         (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessesAndThreadsInformation);
@@ -167,7 +167,7 @@ NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pProcess, PETHREAD* ppThread
     }
 
     PSYSTEM_PROCESS_INFO pCurProcessInfo =
-        FindProcessInformation(pSystemProcessInfo, HandleToULong(PsGetProcessId(pProcess)));
+        FindProcessInformation(pSystemProcessInfo, HandleToULong(PsGetProcessId(pEprocess)));
     if (NULL == pCurProcessInfo)
     {
         LOG_ERROR("FindProcessInformation failed");
@@ -265,7 +265,7 @@ BOOL ProcessUtils::SkipThread(PETHREAD pThread)
     return FALSE;
 }
 
-NTSTATUS ProcessUtils::FindAlertableThread(PEPROCESS pProcess, PETHREAD* pAlertableEthread)
+NTSTATUS ProcessUtils::FindAlertableThread(PEPROCESS pEprocess, PETHREAD* pAlertableEthread)
 {
     PSYSTEM_PROCESS_INFO pSystemProcessInfo =
         (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessesAndThreadsInformation);
@@ -276,7 +276,7 @@ NTSTATUS ProcessUtils::FindAlertableThread(PEPROCESS pProcess, PETHREAD* pAlerta
     }
 
     PSYSTEM_PROCESS_INFO info =
-        ProcessUtils::FindProcessInformation(pSystemProcessInfo, HandleToULong(PsGetProcessId(pProcess)));
+        ProcessUtils::FindProcessInformation(pSystemProcessInfo, HandleToULong(PsGetProcessId(pEprocess)));
     if (NULL == info)
     {
         LOG_ERROR("FindProcessInformation failed");
