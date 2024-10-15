@@ -458,6 +458,46 @@ PSYSTEM_SERVICE_DESCRIPTOR_TABLE MemoryUtils::GetSSDTAddress()
     return g_SSDT;
 }
 
+PSYSTEM_SERVICE_DESCRIPTOR_TABLE MemoryUtils::GetShadowSSDTAddress()
+{
+    static PSYSTEM_SERVICE_DESCRIPTOR_TABLE g_ShadowSSDT = NULL;
+    if (g_ShadowSSDT)
+    {
+        return g_ShadowSSDT;
+    }
+
+    PVOID ntBase = GetNtModuleBase(NULL);
+    PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)ntBase;
+    PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((PUCHAR)ntBase + pDosHeader->e_lfanew);
+    if (pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
+    {
+        LOG_ERROR("pNtHeaders->Signature != IMAGE_NT_SIGNATURE");
+        return NULL;
+    }
+
+    PIMAGE_SECTION_HEADER pFirstSectionHeader = (PIMAGE_SECTION_HEADER)((PUCHAR)pNtHeaders + sizeof(IMAGE_NT_HEADERS));
+    for (PIMAGE_SECTION_HEADER pCurSectionHeader = pFirstSectionHeader;
+         pCurSectionHeader < pFirstSectionHeader + pNtHeaders->FileHeader.NumberOfSections;
+         ++pCurSectionHeader)
+    {
+        if (0 == strcmp((const char*)pCurSectionHeader->Name, ".text"))
+        {
+            PVOID ssdtRVA = FindPattern(
+                (PUCHAR)ntBase + pCurSectionHeader->VirtualAddress,
+                pCurSectionHeader->Misc.VirtualSize,
+                (BYTE*)"\x4c\x8d\x15\xcc\xcc\xcc\xcc\x4c\x8d\x1d\xcc\xcc\xcc\xcc\xf7",
+                "xxx????xxx????x");
+            if (ssdtRVA)
+            {
+                g_ShadowSSDT = (PSYSTEM_SERVICE_DESCRIPTOR_TABLE)((PUCHAR)ssdtRVA + *(PULONG)((PUCHAR)ssdtRVA + 10) + 14);
+                break;
+            }
+        }
+    }
+
+    return g_ShadowSSDT;
+}
+
 PVOID MemoryUtils::GetSSDTFunctionAddress(LPCSTR functionName)
 {
     ULONG csrssPid = 0;

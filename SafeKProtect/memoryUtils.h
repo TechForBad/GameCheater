@@ -36,6 +36,9 @@ public:
     // 获取SSDT地址
     static PSYSTEM_SERVICE_DESCRIPTOR_TABLE GetSSDTAddress();
 
+    // 获取SSDT地址
+    static PSYSTEM_SERVICE_DESCRIPTOR_TABLE GetShadowSSDTAddress();
+
     // 根据函数名获取SSDT函数地址
     static PVOID GetSSDTFunctionAddress(LPCSTR functionName);
 
