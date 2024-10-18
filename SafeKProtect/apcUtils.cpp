@@ -25,8 +25,8 @@ static void NTAPI KernelKernelRoutine2(
 static void NTAPI KernelKernelRoutine(
     _In_ PKAPC Apc,
     _Inout_ PKNORMAL_ROUTINE* NormalRoutine,
-    _Inout_ PVOID* NormalContext,                               // �û�̬shellcode�Ĳ�����ַ
-    _Inout_ PVOID* SystemArgument1,                             // ��Ҫִ�е��û�̬shellcode��ַ
+    _Inout_ PVOID* NormalContext,                               // 用户态shellcode的参数地址
+    _Inout_ PVOID* SystemArgument1,                             // 需要执行的用户态shellcode地址
     _Inout_ PVOID* SystemArgument2
 )
 {
@@ -114,34 +114,97 @@ NTSTATUS ApcUtils::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN 
     return STATUS_SUCCESS;
 }
 
-NTSTATUS ApcUtils::RemoteCallBySwitchContext(PSET_CONTEXT_CALL_INFORMATION callInfo)
+NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
 {
-    KeInitializeEvent(&callInfo->kEvent, NotificationEvent, FALSE);
-
-    PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
-    if (NULL == kernelModeApc)
+    PEPROCESS pEprocess = NULL;
+    NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
+    if (!NT_SUCCESS(ntStatus))
     {
-        LOG_ERROR("ExAllocatePoolWithTag failed");
+        LOG_ERROR("PsLookupProcessByProcessId failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+
+    KAPC_STATE apcState;
+    KeStackAttachProcess(pEprocess, &apcState);
+
+    // 获取一个可以alertable的线程
+    PETHREAD pTargetEthread = NULL;
+    ntStatus = ProcessUtils::FindProcessEthread(pEprocess, &pTargetEthread);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("FindProcessThread failed, ntStatus: 0x%x", ntStatus);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
+        return ntStatus;
+    }
+
+    // 获取目标函数地址
+    Fun_MiniDumpWriteDump fun_MiniDumpWriteDump = (Fun_MiniDumpWriteDump)MemoryUtils::GetModuleExportAddress("dbghelp.dll", "MiniDumpWriteDump");
+    if (NULL == fun_MiniDumpWriteDump)
+    {
+        LOG_ERROR("GetModuleExportAddress failed");
+        ObDereferenceObject(pTargetEthread);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
         return STATUS_UNSUCCESSFUL;
     }
 
-    KeInitializeApc(kernelModeApc, callInfo->pTargetEthread, OriginalApcEnvironment, SetCtxApcCallback, NULL, NULL, KernelMode, NULL);
+    KeUnstackDetachProcess(&apcState);
 
-    this->CallInfo = callInfo;
-
-    if (!KeInsertQueueApc(kernelModeApc, this, 0, 2))
+    // 初始化调用信息
+    PSET_CONTEXT_CALL_INFO callInfo = (PSET_CONTEXT_CALL_INFO)ExAllocatePoolWithTag(NonPagedPool, 0x1000, MEM_TAG);
+    if (NULL == callInfo)
     {
-        LOG_ERROR("KeInsertQueueApc failed");
-        ExFreePoolWithTag(kernelModeApc, MEM_TAG);
-        return STATUS_NOT_CAPABLE;
+        LOG_ERROR("ExAllocatePoolWithTag failed");
+        ObDereferenceObject(pTargetEthread);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
     }
 
-    NTSTATUS ntStatus = KeWaitForSingleObject(&callInfo->kEvent, Executive, KernelMode, FALSE, NULL);
-    if (!NT_SUCCESS(ntStatus))
+    /*
+    MiniDumpWriteDump(
+        hProcess,
+        pid,
+        hDumpFile,
+        MiniDumpWithFullMemory,  // full dump
+        NULL,
+        NULL,
+        NULL
+    );
+    */
+    callInfo->pTargetEthread = pTargetEthread;
+    callInfo->userFunction = (PVOID)fun_MiniDumpWriteDump;
+    callInfo->paramCnt = 7;
+    callInfo->param[0].asU64 = 0;
+    callInfo->param[1].asU64 = pid;
+    callInfo->param[2].asU64 = 0;
+    callInfo->param[3].asU64 = MiniDumpWithFullMemory;
+    callInfo->param[4].asU64 = 0;
+    callInfo->param[5].asU64 = 0;
+    callInfo->param[6].asU64 = 0;
+    callInfo->fun_PreCallKernelRoutine = [](PSET_CONTEXT_CALL_INFO callInfo)
     {
-        LOG_ERROR("KeWaitForSingleObject failed, ntStatus: 0x%x", ntStatus);
-        return ntStatus;
+
+    };
+    callInfo->fun_PostCallKernelRoutine = [](PSET_CONTEXT_CALL_INFO callInfo)
+    {
+
+    };
+    KeInitializeEvent(&callInfo->kEvent, NotificationEvent, FALSE);
+
+    // 远程调用
+    SetCtxCallTask setCtxCallTask(callInfo);
+    if (!NT_SUCCESS(setCtxCallTask.Call()))
+    {
+        LOG_ERROR("Call failed");
+        ObDereferenceObject(pTargetEthread);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
     }
+
+    ExFreePoolWithTag(callInfo, MEM_TAG);
+    ObDereferenceObject(pTargetEthread);
+    ObDereferenceObject(pEprocess);
 
     return STATUS_SUCCESS;
 }

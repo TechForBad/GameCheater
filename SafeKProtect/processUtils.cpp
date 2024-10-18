@@ -30,7 +30,7 @@ VOID ProcessUtils::GetProcessName(PEPROCESS proc, PCHAR procName)
 
 PVOID ProcessUtils::GetModuleBaseFor64BitProcess(PEPROCESS proc, PCWSTR moduleName)
 {
-    PPEB pPeb = PsGetProcessPeb(proc);
+    PPEB64 pPeb = PsGetProcessPeb(proc);
     if (NULL == pPeb)
     {
         LOG_ERROR("PsGetProcessPeb failed");

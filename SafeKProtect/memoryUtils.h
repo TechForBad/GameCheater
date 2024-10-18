@@ -13,6 +13,10 @@ public:
 
     static BYTE* FindPattern(BYTE* dwAddress, UINT64 dwLen, const BYTE* bMask, char* szMask);
 
+    static PVOID FindSection(PVOID ModBase, const char* Name, PULONG SectSize);
+
+    static PUCHAR FindPatternSect(PVOID ModBase, const char* SectName, const char* Pattern);
+
     // 查询系统信息，返回值需要释放内存
     static PVOID GetSystemInformation(SYSTEM_INFORMATION_CLASS sysInfoClass);
 

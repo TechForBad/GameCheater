@@ -211,6 +211,107 @@ BYTE* MemoryUtils::FindPattern(BYTE* pAddress, UINT64 dwLen, const BYTE* bMask, 
     return NULL;
 }
 
+#define IMAGE_FIRST_SECTION(NtHeader) (PIMAGE_SECTION_HEADER)(NtHeader + 1)
+#define NT_HEADER(ModBase) (PIMAGE_NT_HEADERS)((ULONG64)(ModBase) + ((PIMAGE_DOS_HEADER)(ModBase))->e_lfanew)
+
+PVOID MemoryUtils::FindSection(PVOID ModBase, const char* Name, PULONG SectSize)
+{
+    //get & enum sections
+    PIMAGE_NT_HEADERS NT_Header = NT_HEADER(ModBase);
+    PIMAGE_SECTION_HEADER Sect = IMAGE_FIRST_SECTION(NT_Header);
+
+    for (PIMAGE_SECTION_HEADER pSect = Sect; pSect < Sect + NT_Header->FileHeader.NumberOfSections; pSect++)
+    {
+        //copy section name
+        char SectName[9]; SectName[8] = 0;
+        *(ULONG64*)&SectName[0] = *(ULONG64*)&pSect->Name[0];
+
+        //check name
+        if (StrICmp(Name, SectName, true))
+        {
+            //save size
+            if (SectSize)
+            {
+                ULONG SSize = SizeAlign(max(pSect->Misc.VirtualSize, pSect->SizeOfRawData));
+                *SectSize = SSize;
+            }
+
+            //ret full sect ptr
+            return (PVOID)((ULONG64)ModBase + pSect->VirtualAddress);
+        }
+    }
+
+    //no section
+    return nullptr;
+}
+
+// find pattern utils
+#define InRange(x, a, b) (x >= a && x <= b) 
+#define GetBits(x) (InRange(x, '0', '9') ? (x - '0') : (InRange(x, 'a', 'z') ? ((x - 'a') + 0xA) : ((x - 'A') + 0xA)) )
+#define GetByte(x) ((UCHAR)(GetBits(x[0]) << 4 | GetBits(x[1])))
+
+static bool readByte(PVOID addr, UCHAR* ret)
+{
+    *ret = *(volatile char*)addr;
+    return true;
+}
+
+PUCHAR MemoryUtils::FindPatternSect(PVOID ModBase, const char* SectName, const char* Pattern)
+{
+    if (!ModBase) return nullptr;
+
+    //get sect range
+    ULONG SectSize;
+    PUCHAR ModuleStart = (PUCHAR)FindSection(ModBase, SectName, &SectSize);
+    PUCHAR ModuleEnd = ModuleStart + SectSize;
+
+    if (!ModuleStart) return nullptr;
+
+    //scan pattern main
+    PUCHAR FirstMatch = nullptr;
+    const char* CurPatt = Pattern;
+    if (*Pattern == '\0')
+        CurPatt++;
+
+    for (; ModuleStart < ModuleEnd; ++ModuleStart)
+    {
+        bool SkipByte = (*CurPatt == '\?');
+
+        //hp(ModuleStart);
+        UCHAR byte1;
+        if (!readByte(ModuleStart, &byte1))
+        {
+            auto addr2 = (ULONG64)ModuleStart;
+            addr2 &= 0xFFFFFFFFFFFFF000;
+            addr2 += 0xFFF;
+            ModuleStart = (PUCHAR)addr2;
+            //sp("123");
+            goto Skip;
+        }
+
+        if (SkipByte || byte1 == GetByte(CurPatt))
+        {
+            if (!FirstMatch) FirstMatch = ModuleStart;
+            if (SkipByte)
+                CurPatt += 2;
+            else
+                CurPatt += 3;
+            if (CurPatt[-1] == 0) return FirstMatch;
+        }
+
+        else if (FirstMatch)
+        {
+            ModuleStart = FirstMatch;
+        Skip:
+            FirstMatch = nullptr;
+            CurPatt = Pattern;
+        }
+    }
+
+    //failed
+    return nullptr;
+}
+
 PVOID MemoryUtils::GetSystemInformation(SYSTEM_INFORMATION_CLASS sysInfoClass)
 {
     ULONG bytes = 0;
@@ -358,7 +459,7 @@ ULONG MemoryUtils::GetFunctionIndexFromExportTable(PVOID moduleBase, LPCSTR func
 
 PVOID MemoryUtils::GetProcessModuleBase(PEPROCESS proc, PCWSTR moduleName, PULONG moduleSize)
 {
-    PPEB pPeb = PsGetProcessPeb(proc);
+    PPEB64 pPeb = PsGetProcessPeb(proc);
     if (NULL == pPeb)
     {
         LOG_ERROR("PsGetProcessPeb failed");

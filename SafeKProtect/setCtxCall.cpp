@@ -1,6 +1,6 @@
 #include "setCtxCall.h"
 
-//0x6461654469706950ui64
+// 0x6461654469706950ui64
 #define PIPI_IDENTIFIYER (((ULONG64)'daeD' << 32) + 'ipiP')
 
 #define PIPI_CALL_IDENTIFIYER (((ULONG64)'llaC' << 32) + 'ipiP')
@@ -48,7 +48,42 @@
 #define SIGN_EXTEND_BIT(_va_, _bit_) \
     (ULONG64)(((LONG64)(_va_) << (64 - (_bit_))) >> (64 - (_bit_)))
 
-VOID SetCtxCall::SetCtxApcCallback(
+SetCtxCallTask::SetCtxCallTask(PSET_CONTEXT_CALL_INFO callInfo)
+{
+
+    callInfo_ = callInfo;
+
+}
+
+NTSTATUS SetCtxCallTask::Call()
+{
+    PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+    if (NULL == kernelModeApc)
+    {
+        LOG_ERROR("ExAllocatePoolWithTag failed");
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    KeInitializeApc(kernelModeApc, callInfo_->pTargetEthread, OriginalApcEnvironment, SetCtxApcCallback, NULL, NULL, KernelMode, NULL);
+
+    if (!KeInsertQueueApc(kernelModeApc, this, 0, 2))
+    {
+        LOG_ERROR("KeInsertQueueApc failed");
+        ExFreePoolWithTag(kernelModeApc, MEM_TAG);
+        return STATUS_NOT_CAPABLE;
+    }
+
+    NTSTATUS ntStatus = KeWaitForSingleObject(&callInfo_->kEvent, Executive, KernelMode, FALSE, NULL);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("KeWaitForSingleObject failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+VOID SetCtxCallTask::SetCtxApcCallback(
     PRKAPC Apc,
     PKNORMAL_ROUTINE* NormalRoutine,
     PVOID* NormalContext,
@@ -58,7 +93,7 @@ VOID SetCtxCall::SetCtxApcCallback(
 {
     ExFreePoolWithTag(Apc, MEM_TAG);
 
-    PKTHREAD CurrentThread = KeGetCurrentThread();
+    auto CurrentThread = KeGetCurrentThread();
     if (PsGetTrapFrame(CurrentThread) != 0)
     {
         // apc comes from a interrupt
@@ -66,7 +101,7 @@ VOID SetCtxCall::SetCtxApcCallback(
         // return;
     }
 
-    PKTRAP_FRAME BaseTrapFrame = PspGetBaseTrapFrame(CurrentThread);
+    auto BaseTrapFrame = PspGetBaseTrapFrame(CurrentThread);
     if (NULL == BaseTrapFrame)
     {
         DbgBreakPoint();
@@ -108,8 +143,7 @@ VOID SetCtxCall::SetCtxApcCallback(
     {
         ControlPc = ContextRecord.Rip;
         FunctionEntry = RtlLookupFunctionEntry(ControlPc, &ImageBase, NULL);
-
-        if (FunctionEntry != NULL)
+        if (FunctionEntry)
         {
             RtlVirtualUnwind(
                 UNW_FLAG_EHANDLER,
@@ -127,82 +161,92 @@ VOID SetCtxCall::SetCtxApcCallback(
             ContextRecord.Rip = *(PULONG64)(ContextRecord.Rsp);
             ContextRecord.Rsp += 8;
         }
-
     } while (EstablisherFrame != (ULONG64)BaseTrapFrame);
 
     CONTEXT OrigContext;
     OrigContext.ContextFlags = CONTEXT_FULL;
     PspGetContext(BaseTrapFrame, &ContextPointers, &OrigContext);
 
-    SetCtxCall* thisptr = *(SetCtxCall**)SystemArgument1;
+	SetCtxCallTask* thisptr = *(SetCtxCallTask**)SystemArgument1;
 
     if (!thisptr->bInitCommu)
     {
-        auto ntdll = GetModuleHandle("ntdll.dll");
-        auto win32u = GetModuleHandle("win32u.dll");
+        PVOID ntdll = GetModuleHandle("ntdll.dll");
+        PVOID win32u = GetModuleHandle("win32u.dll");
 
         // u poi CallRet
         // 00007ffe`88b4a369 xor  edx, edx
         // 00007ffe`88b4a36b lea  rcx, [rsp + 20h]
         // 00007ffe`88b4a370 call ntdll!NtContinue
 
-        thisptr->CallRet = FindPatternSect(ntdll, E(".text"), E("E8 ? ? ? ? 33 D2 48 8D 4C 24 20 E8"));
-        if (!thisptr->CallRet)
-            __db();
+        thisptr->CallRet = MemoryUtils::FindPatternSect(ntdll, ".text", "E8 ? ? ? ? 33 D2 48 8D 4C 24 20 E8");
+		if (!thisptr->CallRet)
+		{
+			DbgBreakPoint();
+		}
 
-        if (RVA(thisptr->CallRet + 12, 5) != (u64)GetProcAddress(ntdll, E("NtContinue")))
-            __db();
+		if (RVA(thisptr->CallRet + 12, 5) != (ULONG64)GetProcAddress(ntdll, ("NtContinue")))
+		{
+			DbgBreakPoint();
+		}
 
         thisptr->CallRet += 5;
 
-
-        auto instr = (u64)GetProcAddress(NtBase, "KeQueryAuxiliaryCounterFrequency") + 4;
+        auto instr = (ULONG64)GetProcAddress(MemoryUtils::GetNtModuleBase(NULL), "KeQueryAuxiliaryCounterFrequency") + 4;
         auto bbbb = *(LONG*)(instr + 3);
 
         auto rva = instr + 7 + bbbb;
 
+        OrigNtQuery = *(ULONG64*)rva;
+        *(ULONG64*)rva = (ULONG64)HkCommunicate;
 
-
-        OrigNtQuery = *(u64*)rva;
-        *(u64*)rva = (u64)HkCommunicate;
-
-
-
-
-        thisptr->CommuFunction = (u64)GetProcAddress(ntdll, E("NtQueryAuxiliaryCounterFrequency"));//your win32k io function or data ptr function;
+        thisptr->CommuFunction = (ULONG64)GetProcAddress(ntdll, "NtQueryAuxiliaryCounterFrequency"); //your win32k io function or data ptr function;
         thisptr->bInitCommu = true;
     }
 
-
-
     CONTEXT PreCallCtx = OrigContext;
     PreCallCtx.ContextFlags = CONTEXT_CONTROL;
-    PreCallCtx.Rsp -= 0x28 + 0x30 + sizeof(CONTEXT) * 2;//alloc stack at the precall to prevent other apc destroy
-    //the stack
-    PreCallCtx.Rip = (u64)thisptr->CallRet;
+    PreCallCtx.Rsp -= 0x28 + 0x30 + sizeof(CONTEXT) * 2; //alloc stack at the precall to prevent other apc destroy
+    // the stack
+    PreCallCtx.Rip = (ULONG64)thisptr->CallRet;
 
-    //used in ntcontinue.
+    // used in ntcontinue.
     CONTEXT CallDriverCtx = OrigContext;
     CallDriverCtx.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
     CallDriverCtx.Rsp -= 0x30 + sizeof(CONTEXT);
-    CallDriverCtx.Rip = (u64)thisptr->CommuFunction;
+    CallDriverCtx.Rip = (ULONG64)thisptr->CommuFunction;
     CallDriverCtx.Rcx = CallDriverCtx.Rsp + 0x18;
     CallDriverCtx.Rdx = 0;
     CallDriverCtx.R8 = 0;
     CallDriverCtx.R9 = 0;
-    *(u64*)(CallDriverCtx.Rsp + 8) = PIPI_CALL_IDENTIFIYER;
-    *(u64*)(CallDriverCtx.Rsp + 0x10) = (u64)thisptr; // using a handle can be more secure. 
+    *(ULONG64*)(CallDriverCtx.Rsp + 8) = PIPI_CALL_IDENTIFIYER;
+    *(ULONG64*)(CallDriverCtx.Rsp + 0x10) = (ULONG64)thisptr; // using a handle can be more secure. 
 
-    memcpy((pv)(CallDriverCtx.Rsp + 0x28), &OrigContext, sizeof(CONTEXT));
-    *(pv*)(CallDriverCtx.Rsp) = thisptr->CallRet;
+    memcpy((PVOID)(CallDriverCtx.Rsp + 0x28), &OrigContext, sizeof(CONTEXT));
+    *(PVOID*)(CallDriverCtx.Rsp) = thisptr->CallRet;
 
-    memcpy((pv)(PreCallCtx.Rsp + 0x20), &CallDriverCtx, sizeof(CONTEXT));
+    memcpy((PVOID)(PreCallCtx.Rsp + 0x20), &CallDriverCtx, sizeof(CONTEXT));
 
     PspSetContext(BaseTrapFrame, &ContextPointers, &PreCallCtx, UserMode);
-
 }
 
-ULONG64 SetCtxCall::SANITIZE_VA(
+PKTRAP_FRAME SetCtxCallTask::PspGetBaseTrapFrame(PETHREAD Thread)
+{
+    ULONG64 InitialStack;
+    PKERNEL_STACK_CONTROL StackControl;
+
+    InitialStack = *(ULONG64*)((ULONG64)Thread + 0x28);
+    StackControl = (PKERNEL_STACK_CONTROL)InitialStack;
+    while (StackControl->StackExpansion)
+    {
+        InitialStack = StackControl->Previous.InitialStack;
+        StackControl = (PKERNEL_STACK_CONTROL)InitialStack;
+    }
+
+    return (PKTRAP_FRAME)(InitialStack - KTRAP_FRAME_LENGTH);
+}
+
+ULONG64 SetCtxCallTask::SANITIZE_VA(
 	IN ULONG64 VirtualAddress,
 	IN USHORT Segment,
 	IN KPROCESSOR_MODE PreviousMode
@@ -263,7 +307,7 @@ Return Value:
 	return Va;
 }
 
-VOID SetCtxCall::PspGetContext(
+VOID SetCtxCallTask::PspGetContext(
 	IN PKTRAP_FRAME TrapFrame,
 	IN PKNONVOLATILE_CONTEXT_POINTERS ContextPointers,
 	IN OUT PCONTEXT ContextRecord
@@ -470,11 +514,11 @@ Return Value:
 	return;
 }
 
-VOID SetCtxCall::PspSetContext(
-    OUT PKTRAP_FRAME TrapFrame,
-    OUT PKNONVOLATILE_CONTEXT_POINTERS ContextPointers,
-    IN PCONTEXT ContextRecord,
-    KPROCESSOR_MODE PreviousMode
+VOID SetCtxCallTask::PspSetContext(
+	OUT PKTRAP_FRAME TrapFrame,
+	OUT PKNONVOLATILE_CONTEXT_POINTERS ContextPointers,
+	IN PCONTEXT ContextRecord,
+	KPROCESSOR_MODE PreviousMode
 )
 
 /*++
@@ -655,18 +699,59 @@ Return Value:
 	return;
 }
 
-PKTRAP_FRAME SetCtxCall::PspGetBaseTrapFrame(PETHREAD pEthread)
+NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
 {
-    ULONG64 InitialStack;
-    PKERNEL_STACK_CONTROL StackControl;
+	DbgBreakPoint();
 
-    InitialStack = *(ULONG64*)((ULONG64)pEthread + 0x28);
-    StackControl = (PKERNEL_STACK_CONTROL)InitialStack;
-    while (StackControl->StackExpansion)
+    do
     {
-        InitialStack = StackControl->Previous.InitialStack;
-        StackControl = (PKERNEL_STACK_CONTROL)InitialStack;
-    }
+        auto TrapFrame = PsGetTrapFrame();
+        if (!TrapFrame ||
+            !IsValid(TrapFrame->Rsp) ||
+            (*(ULONG64*)(TrapFrame->Rsp + 8) != PIPI_CALL_IDENTIFIYER))
+        {
+			DbgBreakPoint();
+            break;
+        }
 
-    return (PKTRAP_FRAME)(InitialStack - KTRAP_FRAME_LENGTH);
+        SetCtxCallTask* thisptr = *(SetCtxCallTask**)(TrapFrame->Rsp + 0x10);
+        if (!IsValid((ULONG64)thisptr))
+        {
+			DbgBreakPoint();
+            break;
+        }
+
+        //tf->Rsp -= 8;
+        if (!thisptr->bUserCallInit)
+        {
+            thisptr->CtxUserCall.Init();
+            thisptr->bUserCallInit = true;
+        }
+
+        PSET_CONTEXT_CALL_INFO CallInfo = thisptr->callInfo_;
+
+        if (CallInfo->fun_PreCallKernelRoutine)
+        {
+            CallInfo->fun_PreCallKernelRoutine(thisptr->callInfo_);
+        }
+
+        CallInfo->retVal = thisptr->CtxUserCall.Call(
+            CallInfo->userFunction,
+            CallInfo->param[0].asU64,
+            CallInfo->param[1].asU64,
+            CallInfo->param[2].asU64,
+            CallInfo->param[3].asU64
+		);
+
+        if (CallInfo->fun_PostCallKernelRoutine)
+        {
+            CallInfo->fun_PostCallKernelRoutine(thisptr->callInfo_);
+        }
+
+        KeSetEvent(&CallInfo->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
+
+        return STATUS_UNSUCCESSFUL;
+    } while (false);
+
+    return ((NTSTATUS(*)(ULONG64 a1))OrigNtQuery)(a1);
 }

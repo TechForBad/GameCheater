@@ -30,7 +30,7 @@ PVOID GetCurrentProcessModule(const char* ModName, ULONG* ModSize, bool force64)
     }
     else
     {
-        PPEB64 PEB = ImpCall(PsGetProcessPeb, Process);
+        PPEB64 PEB = PsGetProcessPeb(Process);
         if (!PEB || !PEB->Ldr)
             return nullptr;
 

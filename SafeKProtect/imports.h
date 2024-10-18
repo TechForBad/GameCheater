@@ -211,85 +211,6 @@ typedef struct _LDR_DATA_TABLE_ENTRY
     ULONG TimeDateStamp;
 } LDR_DATA_TABLE_ENTRY, * PLDR_DATA_TABLE_ENTRY;
 
-extern "C"
-{
-    NTKERNELAPI NTSTATUS NTAPI ZwProtectVirtualMemory(
-        HANDLE ProcessHandle,
-        PVOID* BaseAddress,
-        PULONG ProtectSize,
-        ULONG NewProtect,
-        PULONG OldProtect
-    );
-
-    NTKERNELAPI PVOID NTAPI RtlFindExportedRoutineByName(_In_ PVOID ImageBase, _In_ PCCH RoutineNam);
-
-    extern "C" NTSTATUS ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
-
-    NTKERNELAPI PPEB PsGetProcessPeb(IN PEPROCESS Process);
-
-    NTKERNELAPI PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(PVOID Base);
-
-    NTKERNELAPI NTSTATUS NTAPI MmCopyVirtualMemory(
-        PEPROCESS SourceProcess,
-        PVOID SourceAddress,
-        PEPROCESS TargetProcess,
-        PVOID TargetAddress,
-        SIZE_T BufferSize,
-        KPROCESSOR_MODE PreviousMode,
-        PSIZE_T ReturnSize
-    );
-
-    NTKERNELAPI NTSTATUS NTAPI ZwQueryInformationProcess(
-        IN HANDLE ProcessHandle,
-        IN PROCESSINFOCLASS ProcessInformationClass,
-        OUT PVOID ProcessInformation,
-        IN ULONG ProcessInformationLength,
-        OUT PULONG ReturnLength OPTIONAL
-    );
-
-    NTKERNELAPI NTSTATUS NTAPI NtQueryIntervalProfile(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
-
-    NTKERNELAPI BOOLEAN NTAPI KeTestAlertThread(IN KPROCESSOR_MODE AlertMode);
-
-    NTKERNELAPI PVOID NTAPI PsGetThreadTeb(IN PETHREAD Thread);
-
-    NTKERNELAPI HWINEVENTHOOK NtUserSetWinEventHook(
-        IN DWORD           eventMin,
-        IN DWORD           eventMax,
-        IN HMODULE         hmodWinEventProc,
-        IN PUNICODE_STRING pstrLib OPTIONAL,
-        IN PVOID           pfnWinEventProc,
-        IN DWORD           idEventProcess,
-        IN DWORD           idEventThread,
-        IN DWORD           dwFlags
-    );
-
-    NTKERNELAPI PPEB64 PsGetProcessPeb(
-        _In_ PEPROCESS Process
-    );
-
-    NTKERNELAPI PPEB32 PsGetProcessWow64Process(
-        _In_ PEPROCESS  Process
-    );
-
-    PRUNTIME_FUNCTION NTAPI RtlLookupFunctionEntry(
-        _In_ DWORD64 ControlPc,
-        _Out_ PDWORD64 ImageBase,
-        _Inout_opt_ PVOID HistoryTable
-    );
-
-    PEXCEPTION_ROUTINE NTAPI RtlVirtualUnwind(
-        _In_ DWORD HandlerType,
-        _In_ DWORD64 ImageBase,
-        _In_ DWORD64 ControlPc,
-        _In_ PRUNTIME_FUNCTION FunctionEntry,
-        _Inout_ PCONTEXT ContextRecord,
-        _Out_ PVOID* HandlerData,
-        _Out_ PDWORD64 EstablisherFrame,
-        _Inout_opt_ PKNONVOLATILE_CONTEXT_POINTERS ContextPointers
-    );
-}
-
 typedef
 _Function_class_(KNORMAL_ROUTINE)
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -640,3 +561,88 @@ typedef struct _LDR_DATA_TABLE_ENTRY64
     ULONG64 OriginalBase;
     LARGE_INTEGER LoadTime;
 } LDR_DATA_TABLE_ENTRY64, * PLDR_DATA_TABLE_ENTRY64;
+
+extern "C"
+{
+    NTKERNELAPI NTSTATUS NTAPI ZwProtectVirtualMemory(
+        HANDLE ProcessHandle,
+        PVOID* BaseAddress,
+        PULONG ProtectSize,
+        ULONG NewProtect,
+        PULONG OldProtect
+    );
+
+    NTKERNELAPI PVOID NTAPI RtlFindExportedRoutineByName(_In_ PVOID ImageBase, _In_ PCCH RoutineNam);
+
+    extern "C" NTSTATUS ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
+
+    NTKERNELAPI PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(PVOID Base);
+
+    NTKERNELAPI NTSTATUS NTAPI MmCopyVirtualMemory(
+        PEPROCESS SourceProcess,
+        PVOID SourceAddress,
+        PEPROCESS TargetProcess,
+        PVOID TargetAddress,
+        SIZE_T BufferSize,
+        KPROCESSOR_MODE PreviousMode,
+        PSIZE_T ReturnSize
+    );
+
+    NTKERNELAPI NTSTATUS NTAPI ZwQueryInformationProcess(
+        IN HANDLE ProcessHandle,
+        IN PROCESSINFOCLASS ProcessInformationClass,
+        OUT PVOID ProcessInformation,
+        IN ULONG ProcessInformationLength,
+        OUT PULONG ReturnLength OPTIONAL
+    );
+
+    NTKERNELAPI NTSTATUS NTAPI NtQueryIntervalProfile(IN KPROFILE_SOURCE ProfileSource, OUT PULONG Interval);
+
+    NTKERNELAPI BOOLEAN NTAPI KeTestAlertThread(IN KPROCESSOR_MODE AlertMode);
+
+    NTKERNELAPI PVOID NTAPI PsGetThreadTeb(IN PETHREAD Thread);
+
+    NTKERNELAPI HWINEVENTHOOK NtUserSetWinEventHook(
+        IN DWORD           eventMin,
+        IN DWORD           eventMax,
+        IN HMODULE         hmodWinEventProc,
+        IN PUNICODE_STRING pstrLib OPTIONAL,
+        IN PVOID           pfnWinEventProc,
+        IN DWORD           idEventProcess,
+        IN DWORD           idEventThread,
+        IN DWORD           dwFlags
+    );
+
+    NTKERNELAPI PPEB64 PsGetProcessPeb(
+        _In_ PEPROCESS Process
+    );
+
+    NTKERNELAPI PPEB32 PsGetProcessWow64Process(
+        _In_ PEPROCESS  Process
+    );
+
+    PRUNTIME_FUNCTION NTAPI RtlLookupFunctionEntry(
+        _In_ DWORD64 ControlPc,
+        _Out_ PDWORD64 ImageBase,
+        _Inout_opt_ PVOID HistoryTable
+    );
+
+    PEXCEPTION_ROUTINE NTAPI RtlVirtualUnwind(
+        _In_ DWORD HandlerType,
+        _In_ DWORD64 ImageBase,
+        _In_ DWORD64 ControlPc,
+        _In_ PRUNTIME_FUNCTION FunctionEntry,
+        _Inout_ PCONTEXT ContextRecord,
+        _Out_ PVOID* HandlerData,
+        _Out_ PDWORD64 EstablisherFrame,
+        _Inout_opt_ PKNONVOLATILE_CONTEXT_POINTERS ContextPointers
+    );
+
+    NTSTATUS KeUserModeCallback(
+        IN ULONG ApiNumber,
+        IN PVOID InputBuffer,
+        IN ULONG InputLength,
+        OUT PVOID* OutputBuffer,
+        IN PULONG OutputLength
+    );
+}

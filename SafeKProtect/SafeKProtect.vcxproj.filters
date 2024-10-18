@@ -37,6 +37,9 @@
     <ClInclude Include="setCtxCall.h">
       <Filter>ApcUtils</Filter>
     </ClInclude>
+    <ClInclude Include="usermodeCallback.h">
+      <Filter>ApcUtils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">
@@ -99,6 +102,9 @@
       <Filter>ApcUtils</Filter>
     </ClCompile>
     <ClCompile Include="setCtxCall.cpp">
+      <Filter>ApcUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="usermodeCallback.cpp">
       <Filter>ApcUtils</Filter>
     </ClCompile>
   </ItemGroup>
