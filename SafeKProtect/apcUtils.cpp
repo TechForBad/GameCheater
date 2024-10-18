@@ -114,8 +114,10 @@ NTSTATUS ApcUtils::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN 
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS QueueUserApc(PSET_CONTEXT_CALL_INFORMATION callInfo)
+NTSTATUS ApcUtils::RemoteCallBySwitchContext(PSET_CONTEXT_CALL_INFORMATION callInfo)
 {
+    KeInitializeEvent(&callInfo->kEvent, NotificationEvent, FALSE);
+
     PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
     if (NULL == kernelModeApc)
     {
@@ -125,7 +127,7 @@ static NTSTATUS QueueUserApc(PSET_CONTEXT_CALL_INFORMATION callInfo)
 
     KeInitializeApc(kernelModeApc, callInfo->pTargetEthread, OriginalApcEnvironment, SetCtxApcCallback, NULL, NULL, KernelMode, NULL);
 
-    this->CallInfo = CallInfo;
+    this->CallInfo = callInfo;
 
     if (!KeInsertQueueApc(kernelModeApc, this, 0, 2))
     {
@@ -134,22 +136,7 @@ static NTSTATUS QueueUserApc(PSET_CONTEXT_CALL_INFORMATION callInfo)
         return STATUS_NOT_CAPABLE;
     }
 
-    return STATUS_SUCCESS;
-
-}
-
-NTSTATUS ApcUtils::RemoteCallBySwitchContext(PSET_CONTEXT_CALL_INFORMATION callInfo)
-{
-    KeInitializeEvent(&callInfo->kEvent, NotificationEvent, FALSE);
-
-    NTSTATUS ntStatus = QueueUserApc(callInfo);
-    if (!NT_SUCCESS(ntStatus))
-    {
-        LOG_ERROR("QueueUserApc failed, ntStatus: 0x%x", ntStatus);
-        return ntStatus;
-    }
-
-    ntStatus = KeWaitForSingleObject(&callInfo->kEvent, Executive, KernelMode, FALSE, NULL);
+    NTSTATUS ntStatus = KeWaitForSingleObject(&callInfo->kEvent, Executive, KernelMode, FALSE, NULL);
     if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("KeWaitForSingleObject failed, ntStatus: 0x%x", ntStatus);

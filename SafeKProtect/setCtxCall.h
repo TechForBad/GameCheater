@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-class SetCtxCall
+class SetCtxCallTask
 {
 public:
     VOID SetCtxApcCallback(

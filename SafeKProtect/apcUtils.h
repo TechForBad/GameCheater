@@ -31,4 +31,7 @@ public:
     static NTSTATUS CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN ULONG64 parameter);
 
     static NTSTATUS RemoteCallBySwitchContext(PSET_CONTEXT_CALL_INFORMATION callInfo);
+
+private:
+
 };

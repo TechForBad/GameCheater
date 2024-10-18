@@ -598,9 +598,9 @@ NTSTATUS OperDispatcher::ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath
     }
 
     KeUnstackDetachProcess(&apcState);
-    
+
     // 初始化调用信息
-    PSET_CONTEXT_CALL_INFORMATION callInfo = (PSET_CONTEXT_CALL_INFORMATION)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+    PSET_CONTEXT_CALL_INFORMATION callInfo = (PSET_CONTEXT_CALL_INFORMATION)ExAllocatePoolWithTag(NonPagedPool, 0x1000, MEM_TAG);
     if (NULL == callInfo)
     {
         LOG_ERROR("ExAllocatePoolWithTag failed");
