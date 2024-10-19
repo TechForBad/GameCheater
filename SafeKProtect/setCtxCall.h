@@ -2,6 +2,8 @@
 
 #include "common.h"
 
+#include "usermodeCallback.h"
+
 typedef struct _SET_CONTEXT_CALL_INFO SET_CONTEXT_CALL_INFO, * PSET_CONTEXT_CALL_INFO;
 
 // executed on the context of target process, irql = 0. 
@@ -24,8 +26,6 @@ struct _SET_CONTEXT_CALL_INFO
         ULONG64 asU64;
     } param[1];
 };
-
-class UsermodeCallback;
 
 class SetCtxCallTask
 {

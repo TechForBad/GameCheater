@@ -2,8 +2,6 @@
 
 #include <wdm.h>
 
-#define MEM_TAG 'RICH'
-
 const int kTrace{ 0 };
 const int kInfo{ 1 };
 const int kError{ 2 };

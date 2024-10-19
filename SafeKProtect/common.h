@@ -12,8 +12,9 @@
 #include "apcUtils.h"
 #include "shellcode.h"
 #include "setCtxCall.h"
-#include "usermodeCallback.h"
 #include "OperDispatcher.h"
+
+#define MEM_TAG 'RICH'
 
 #define inl __forceinline
 
