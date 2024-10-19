@@ -2,16 +2,6 @@
 
 #include "common.h"
 
-KTRAP_FRAME* PsGetTrapFrame(PETHREAD Thread = (PETHREAD)__readgsqword(0x188))
-{
-    return *(KTRAP_FRAME**)((ULONG64)Thread + 0x90);
-}
-
-void PsSetTrapFrame(PETHREAD Thread, KTRAP_FRAME* tf)
-{
-    *(KTRAP_FRAME**)((ULONG64)Thread + 0x90) = tf;
-}
-
 class UsermodeCallback
 {
 private:
@@ -88,6 +78,14 @@ private:
 public:
     void Init();
 
+    NTSTATUS KeUserModeCall(
+        IN ULONG ApiNumber,
+        IN PVOID   InputBuffer,
+        IN ULONG InputLength,
+        OUT PVOID* OutputBuffer,
+        IN PULONG OutputLength
+    );
+
     template<typename Ret = void*, typename A1 = void*, typename A2 = void*, typename A3 = void*, typename A4 = void*, typename A5 = void*, typename A6 = void*>
     ULONG64 Call(PVOID Ptr, A1 a1 = 0, A2 a2 = 0, A3 a3 = 0, A4 a4 = 0, A5 a5 = 0, A6 a6 = 0)
     {
@@ -136,66 +134,6 @@ public:
         //call    qword ptr [USER32!_imp_NtCallbackReturn (00007ffe`87598790)]
         //add     rsp,58h
         //ret
-
-    }
-
-    NTSTATUS KeUserModeCall(
-        IN ULONG ApiNumber,
-        IN PVOID   InputBuffer,
-        IN ULONG InputLength,
-        OUT PVOID* OutputBuffer,
-        IN PULONG OutputLength
-    )
-    {
-        PKTRAP_FRAME TrapFrame;
-        ULONG64 OldStack;
-        NTSTATUS Status;
-        ULONG Length;
-        PUCALLOUT_FRAME CalloutFrame;
-
-        auto CurrentThread = __readgsqword(0x188);
-        *(UCHAR*)(CurrentThread + 0x2db) = *(UCHAR*)(CurrentThread + 0x2db) + 1; // CallbackNestingLevel++
-
-        DWORD64 StackBase = (DWORD64)MmCreateKernelStack(FALSE, 0, 0);
-
-        PKSTACK_CONTROL KSC = (PKSTACK_CONTROL)(StackBase - sizeof(KSTACK_CONTROL));
-        KSC->StackBase = StackBase;
-        KSC->StackLimit = StackBase - KERNEL_STACK_SIZE;
-        KSC->PreviousStackBase = *(DWORD64*)((DWORD64)KeGetCurrentThread() + 0x38);//KernelStack
-        KSC->PreviousStackLimit = *(DWORD64*)((DWORD64)KeGetCurrentThread() + 0x30);//StackLimit
-        KSC->PreviousInitialStack = *(DWORD64*)((DWORD64)KeGetCurrentThread() + 0x28);//InitialStack
-        memset(&KSC->ShadowStackControl, 0, 8 * 4);
-
-        TrapFrame = PsGetTrapFrame(KeGetCurrentThread());
-        OldStack = TrapFrame->Rsp;
-
-        Length = ((InputLength + STACK_ROUND) & ~STACK_ROUND) + UCALLOUT_FRAME_LENGTH;
-        CalloutFrame = (PUCALLOUT_FRAME)((OldStack - Length) & ~STACK_ROUND);
-        memmove(&CalloutFrame[1], InputBuffer, InputLength);
-
-        CalloutFrame->Buffer = &CalloutFrame[1];
-        CalloutFrame->Length = InputLength;
-        CalloutFrame->ApiNumber = ApiNumber;
-        CalloutFrame->MachineFrame.Rsp = OldStack;
-        CalloutFrame->MachineFrame.Rip = TrapFrame->Rip;
-
-        TrapFrame->Rsp = (ULONG64)CalloutFrame;
-
-        Status = KiCallUserMode(
-            OutputBuffer,
-            OutputLength,
-            KSC,
-            StackBase,
-            0,
-            0
-        );
-
-        *(UCHAR*)(CurrentThread + 0x2db) = *(UCHAR*)(CurrentThread + 0x2db) - 1; // CallbackNestingLevel--
-
-        MmDeleteKernelStack(StackBase, FALSE);
-
-        TrapFrame->Rsp = OldStack;
-        return Status;
 
     }
 

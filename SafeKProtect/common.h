@@ -3,6 +3,7 @@
 #include "../Common/public_def.h"
 
 #include "imports.h"
+#include "log.h"
 #include "communication.h"
 #include "memoryUtils.h"
 #include "processUtils.h"
@@ -10,8 +11,8 @@
 #include "fileUtils.h"
 #include "apcUtils.h"
 #include "shellcode.h"
-#include "usermodeCallback.h"
 #include "setCtxCall.h"
+#include "usermodeCallback.h"
 #include "OperDispatcher.h"
 
 #define inl __forceinline
@@ -22,45 +23,32 @@
 #define NT_HEADER(Base) (PIMAGE_NT_HEADERS)((ULONG64)(Base) + ((PIMAGE_DOS_HEADER)(Base))->e_lfanew)
 
 template <typename StrType, typename StrType2>
-__forceinline bool StrICmp(StrType Str, StrType2 InStr, bool CompareFull)
+inl BOOL StrICmp(StrType Str, StrType2 InStr, BOOL CompareFull)
 {
-    if (!Str || !InStr) return false;
-    wchar_t c1, c2; do
+    if (!Str || !InStr)
     {
-        c1 = *Str++; c2 = *InStr++;
-        c1 = ToLower(c1); c2 = ToLower(c2);
+        return false;
+    }
+    WCHAR c1, c2;
+    do
+    {
+        c1 = *Str++;
+        c2 = *InStr++;
+        c1 = ToLower(c1);
+        c2 = ToLower(c2);
         if (!c1 && (CompareFull ? !c2 : 1))
+        {
             return true;
+        }
     } while (c1 == c2);
 
-    return false;
+    return FALSE;
 }
 
 #define RVA(Instr, InstrSize) ((DWORD64)Instr + InstrSize + *(LONG*)((DWORD64)Instr + (InstrSize - sizeof(LONG))))
 #define RVA2(Instr, InstrSize, Off) ((DWORD64)Instr + InstrSize + *(LONG*)((DWORD64)Instr + Off))
 
-// 内存分配标志
-#define MEM_TAG 'RICH'
-
-const int kTrace{ 0 };
-const int kInfo{ 1 };
-const int kError{ 2 };
-
-const static char* szLevel[] = { "TRACE", "INFO", "ERROR" };
-
-template <typename... Args>
-void log(int _level, const char* _file, int _line, const char* _fun, const char* fmt, Args... args)
-{
-    KdPrint(("[%s] %s(%d)::%s", szLevel[_level], _file, _line, _fun));
-    KdPrint((fmt, args...));
-}
-
-#define LOG_TRACE(...) \
-  log(kTrace, __FILENAME__, __LINE__, __FUNC__, __VA_ARGS__)
-#define LOG_INFO(...) \
-  log(kInfo, __FILENAME__, __LINE__, __FUNC__, __VA_ARGS__)
-#define LOG_ERROR(...) \
-  log(kError, __FILENAME__, __LINE__, __FUNC__, __VA_ARGS__)
+#define SizeAlign(Size) ((Size + 0xFFF) & 0xFFFFFFFFFFFFF000)
 
 #define ProbeOutputType(pointer, type)                                        \
 _Pragma("warning(suppress : 6001)")                                           \
@@ -94,61 +82,39 @@ inl VOID WriteDisable()
     __writecr0(cr0);
 }
 
-inl BOOLEAN IsProcessExit(PEPROCESS epro)
+inl BOOLEAN IsProcessExit(PEPROCESS pEprocess)
 {
-    if (!epro)
+    if (!pEprocess)
     {
         return TRUE;
     }
-
-    return PsGetProcessExitStatus(epro) != STATUS_PENDING;
+    return PsGetProcessExitStatus(pEprocess) != STATUS_PENDING;
 }
 
-inl void KSleep(LONG milliseconds)
+inl VOID KSleep(LONG milliseconds)
 {
     LARGE_INTEGER interval;
     interval.QuadPart = -(10000 * milliseconds);  // convert milliseconds to 100 nanosecond intervals
     KeDelayExecutionThread(KernelMode, FALSE, &interval);
 }
 
-PVOID GetCurrentProcessModule(const char* ModName, ULONG* ModSize = 0, bool force64 = 1);
+PVOID GetCurrentProcessModule(LPCSTR ModName, ULONG* ModSize = NULL, BOOL force64 = TRUE);
 
-inl PVOID GetModuleHandle(const char* ModName)
+inl PVOID GetModuleHandle(LPCSTR ModName)
 {
     return GetCurrentProcessModule(ModName);
 }
 
-inl PVOID GetProcAddress(PVOID ModBase, const char* Name)
-{
-    if (!ModBase) return 0;
-    //parse headers
-    PIMAGE_NT_HEADERS NT_Head = NT_HEADER(ModBase);
-    PIMAGE_EXPORT_DIRECTORY ExportDir = (PIMAGE_EXPORT_DIRECTORY)((ULONG64)ModBase + NT_Head->OptionalHeader.DataDirectory[0].VirtualAddress);
-
-    //process records
-    for (ULONG i = 0; i < ExportDir->NumberOfNames; i++)
-    {
-        //get ordinal & name
-        USHORT Ordinal = ((USHORT*)((ULONG64)ModBase + ExportDir->AddressOfNameOrdinals))[i];
-        const char* ExpName = (const char*)ModBase + ((ULONG*)((ULONG64)ModBase + ExportDir->AddressOfNames))[i];
-
-        //check export name
-        if (StrICmp(Name, ExpName, true))
-            return (PVOID)((ULONG64)ModBase + ((ULONG*)((ULONG64)ModBase + ExportDir->AddressOfFunctions))[Ordinal]);
-    }
-
-    //no export
-    return nullptr;
-}
+PVOID GetProcAddress(PVOID ModBase, LPCSTR Name);
 
 inl BOOLEAN IsValid(ULONG64 addr)
 {
     if (addr < 0x1000)
-        return false;
+    {
+        return FALSE;
+    }
     return MmIsAddressValid((PVOID)addr);
 }
-
-#define SizeAlign(Size) ((Size + 0xFFF) & 0xFFFFFFFFFFFFF000)
 
 inl void MemZero(PVOID Ptr, SIZE_T Size, UCHAR Filling = 0)
 {
@@ -160,16 +126,16 @@ inl void MemCpy(PVOID Destination, PVOID Source, SIZE_T Count)
     __movsb((PUCHAR)Destination, (PUCHAR)Source, Count);
 }
 
-inl PVOID UAlloc(ULONG Size, ULONG Protect = PAGE_READWRITE, bool load = true)
+PVOID UAlloc(ULONG Size, ULONG Protect = PAGE_READWRITE, BOOL load = TRUE);
+
+VOID UFree(PVOID Ptr);
+
+inl KTRAP_FRAME* PsGetTrapFrame(PETHREAD pEthread = (PETHREAD)__readgsqword(0x188))
 {
-    PVOID AllocBase = nullptr; SIZE_T SizeUL = SizeAlign(Size);
-#define LOCK_VM_IN_RAM 2
-#define LOCK_VM_IN_WORKING_SET 1
-    if (!ZwAllocateVirtualMemory(ZwCurrentProcess(), &AllocBase, 0, &SizeUL, MEM_COMMIT, Protect))
-    {
-        //ZwLockVirtualMemory(ZwCurrentProcess(), &AllocBase, &SizeUL, LOCK_VM_IN_WORKING_SET | LOCK_VM_IN_RAM);
-        if (load)
-            MemZero(AllocBase, SizeUL);
-    }
-    return AllocBase;
+    return *(KTRAP_FRAME**)((ULONG64)pEthread + 0x90);
+}
+
+inl VOID PsSetTrapFrame(PETHREAD pEthread, KTRAP_FRAME* tf)
+{
+    *(KTRAP_FRAME**)((ULONG64)pEthread + 0x90) = tf;
 }

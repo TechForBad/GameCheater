@@ -117,6 +117,7 @@
     <ClCompile>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -126,6 +127,7 @@
     <ClCompile>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -151,6 +153,7 @@
     <ClInclude Include="connUtils.h" />
     <ClInclude Include="fileUtils.h" />
     <ClInclude Include="imports.h" />
+    <ClInclude Include="log.h" />
     <ClInclude Include="memoryUtils.h" />
     <ClInclude Include="OperDispatcher.h" />
     <ClInclude Include="processDef.h" />

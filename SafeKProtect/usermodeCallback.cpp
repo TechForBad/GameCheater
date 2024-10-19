@@ -1,4 +1,4 @@
-#include "UsermodeCallback.h"
+#include "usermodeCallback.h"
 
 typedef struct _CFG_CALL_TARGET_INFO
 {
@@ -78,6 +78,66 @@ void UsermodeCallback::Init()
 	//__db();
 	//KiCallUserMode = (pv)(RVA(FindPatternSect(KBase, ("PAGE"), ("4D 8D ? ? 48 8B 94 24 ? ? ? ? 48 8B 8C 24 ? ? ? ? E8 ? ? ? ?")), 25));
 	//ImpCall(DbgPrintEx, 0, 0, "KiCallUserMode %llx\n", KiCallUserMode);
+}
+
+NTSTATUS UsermodeCallback::KeUserModeCall(
+    IN ULONG ApiNumber,
+    IN PVOID   InputBuffer,
+    IN ULONG InputLength,
+    OUT PVOID* OutputBuffer,
+    IN PULONG OutputLength
+)
+{
+    PKTRAP_FRAME TrapFrame;
+    ULONG64 OldStack;
+    NTSTATUS Status;
+    ULONG Length;
+    PUCALLOUT_FRAME CalloutFrame;
+
+    auto CurrentThread = __readgsqword(0x188);
+    *(UCHAR*)(CurrentThread + 0x2db) = *(UCHAR*)(CurrentThread + 0x2db) + 1; // CallbackNestingLevel++
+
+    DWORD64 StackBase = (DWORD64)MmCreateKernelStack(FALSE, 0, 0);
+
+    PKSTACK_CONTROL KSC = (PKSTACK_CONTROL)(StackBase - sizeof(KSTACK_CONTROL));
+    KSC->StackBase = StackBase;
+    KSC->StackLimit = StackBase - KERNEL_STACK_SIZE;
+    KSC->PreviousStackBase = *(DWORD64*)((DWORD64)KeGetCurrentThread() + 0x38);//KernelStack
+    KSC->PreviousStackLimit = *(DWORD64*)((DWORD64)KeGetCurrentThread() + 0x30);//StackLimit
+    KSC->PreviousInitialStack = *(DWORD64*)((DWORD64)KeGetCurrentThread() + 0x28);//InitialStack
+    memset(&KSC->ShadowStackControl, 0, 8 * 4);
+
+    TrapFrame = PsGetTrapFrame(KeGetCurrentThread());
+    OldStack = TrapFrame->Rsp;
+
+    Length = ((InputLength + STACK_ROUND) & ~STACK_ROUND) + UCALLOUT_FRAME_LENGTH;
+    CalloutFrame = (PUCALLOUT_FRAME)((OldStack - Length) & ~STACK_ROUND);
+    memmove(&CalloutFrame[1], InputBuffer, InputLength);
+
+    CalloutFrame->Buffer = &CalloutFrame[1];
+    CalloutFrame->Length = InputLength;
+    CalloutFrame->ApiNumber = ApiNumber;
+    CalloutFrame->MachineFrame.Rsp = OldStack;
+    CalloutFrame->MachineFrame.Rip = TrapFrame->Rip;
+
+    TrapFrame->Rsp = (ULONG64)CalloutFrame;
+
+    Status = KiCallUserMode(
+        OutputBuffer,
+        OutputLength,
+        KSC,
+        StackBase,
+        0,
+        0
+    );
+
+    *(UCHAR*)(CurrentThread + 0x2db) = *(UCHAR*)(CurrentThread + 0x2db) - 1; // CallbackNestingLevel--
+
+    MmDeleteKernelStack(StackBase, FALSE);
+
+    TrapFrame->Rsp = OldStack;
+    return Status;
+
 }
 
 UsermodeCallback UserCallback;

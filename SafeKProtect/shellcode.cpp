@@ -113,7 +113,7 @@ static void __fastcall MemoryLoadLibrary_Begin(PVOID NormalContext)
             PVOID pSectionAddress = reinterpret_cast<PVOID>((ULONG_PTR)pMemoryAddress + pSectionHeader[i].VirtualAddress);
 
             // 复制段数据到虚拟内存
-            for (int k = 0; k < pSectionHeader[i].SizeOfRawData; k++)
+            for (ULONG k = 0; k < pSectionHeader[i].SizeOfRawData; ++k)
             {
                 ((PCHAR)pSectionAddress)[k] = *((PCHAR)lpFileData + pSectionHeader[i].PointerToRawData + k);
             }

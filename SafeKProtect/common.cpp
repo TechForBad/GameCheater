@@ -1,6 +1,6 @@
 #include "common.h"
 
-PVOID GetCurrentProcessModule(const char* ModName, ULONG* ModSize, bool force64)
+PVOID GetCurrentProcessModule(LPCSTR ModName, ULONG* ModSize, BOOL force64)
 {
     auto Process = IoGetCurrentProcess();
 
@@ -53,4 +53,52 @@ PVOID GetCurrentProcessModule(const char* ModName, ULONG* ModSize, bool force64)
     }
 
     return nullptr;
+}
+
+PVOID GetProcAddress(PVOID ModBase, LPCSTR Name)
+{
+    if (!ModBase)
+    {
+        return 0;
+    }
+    //parse headers
+    PIMAGE_NT_HEADERS NT_Head = NT_HEADER(ModBase);
+    PIMAGE_EXPORT_DIRECTORY ExportDir = (PIMAGE_EXPORT_DIRECTORY)((ULONG64)ModBase + NT_Head->OptionalHeader.DataDirectory[0].VirtualAddress);
+
+    //process records
+    for (ULONG i = 0; i < ExportDir->NumberOfNames; i++)
+    {
+        //get ordinal & name
+        USHORT Ordinal = ((USHORT*)((ULONG64)ModBase + ExportDir->AddressOfNameOrdinals))[i];
+        const char* ExpName = (const char*)ModBase + ((ULONG*)((ULONG64)ModBase + ExportDir->AddressOfNames))[i];
+
+        //check export name
+        if (StrICmp(Name, ExpName, true))
+            return (PVOID)((ULONG64)ModBase + ((ULONG*)((ULONG64)ModBase + ExportDir->AddressOfFunctions))[Ordinal]);
+    }
+
+    // no export
+    return NULL;
+}
+
+PVOID UAlloc(ULONG Size, ULONG Protect, BOOL load)
+{
+    PVOID AllocBase = nullptr; SIZE_T SizeUL = SizeAlign(Size);
+#define LOCK_VM_IN_RAM 2
+#define LOCK_VM_IN_WORKING_SET 1
+    if (!ZwAllocateVirtualMemory(ZwCurrentProcess(), &AllocBase, 0, &SizeUL, MEM_COMMIT, Protect))
+    {
+        //ZwLockVirtualMemory(ZwCurrentProcess(), &AllocBase, &SizeUL, LOCK_VM_IN_WORKING_SET | LOCK_VM_IN_RAM);
+        if (load)
+        {
+            MemZero(AllocBase, SizeUL);
+        }
+    }
+    return AllocBase;
+}
+
+VOID UFree(PVOID Ptr)
+{
+    SIZE_T SizeUL = 0;
+    ZwFreeVirtualMemory(ZwCurrentProcess(), &Ptr, &SizeUL, MEM_RELEASE);
 }

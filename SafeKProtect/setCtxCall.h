@@ -4,6 +4,7 @@
 
 typedef struct _SET_CONTEXT_CALL_INFO SET_CONTEXT_CALL_INFO, * PSET_CONTEXT_CALL_INFO;
 
+// executed on the context of target process, irql = 0. 
 using Fun_PreUserCall = void(*)(PSET_CONTEXT_CALL_INFO);
 using Fun_PostUserCall = void(*)(PSET_CONTEXT_CALL_INFO);
 
@@ -12,6 +13,7 @@ struct _SET_CONTEXT_CALL_INFO
     PETHREAD pTargetEthread;
     PVOID userFunction;
     ULONG64 retVal;
+    KEVENT kEvent;
 
     Fun_PreUserCall fun_PreCallKernelRoutine;
     Fun_PostUserCall fun_PostCallKernelRoutine;
@@ -21,14 +23,23 @@ struct _SET_CONTEXT_CALL_INFO
     {
         ULONG64 asU64;
     } param[1];
-
-    KEVENT kEvent;
 };
-
-class UsermodeCallback;
 
 class SetCtxCallTask
 {
+private:
+    PSET_CONTEXT_CALL_INFO callInfo_{ nullptr };
+
+    ULONG64 CommuFunction{ 0 };
+    PUCHAR CallRet{ NULL };
+
+    UsermodeCallback CtxUserCall;
+    bool bUserCallInit{ FALSE };
+
+    bool bInitCommu{ FALSE };
+
+    static ULONG64 OrigNtQuery;
+
 public:
     SetCtxCallTask(PSET_CONTEXT_CALL_INFO callInfo);
 
@@ -65,17 +76,4 @@ private:
     static PKTRAP_FRAME PspGetBaseTrapFrame(PETHREAD Thread);
 
     static NTSTATUS HkCommunicate(ULONG64 a1);
-
-private:
-    PSET_CONTEXT_CALL_INFO callInfo_{ nullptr };
-
-    ULONG64 CommuFunction = 0;
-    PUCHAR CallRet = 0;
-
-    class UsermodeCallback CtxUserCall;
-    bool bUserCallInit = false;
-
-    bool bInitCommu = false;
-
-    static ULONG64 OrigNtQuery;
 };

@@ -50,9 +50,7 @@
 
 SetCtxCallTask::SetCtxCallTask(PSET_CONTEXT_CALL_INFO callInfo)
 {
-
     callInfo_ = callInfo;
-
 }
 
 NTSTATUS SetCtxCallTask::Call()

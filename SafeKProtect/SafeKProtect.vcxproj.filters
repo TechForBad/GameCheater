@@ -40,6 +40,9 @@
     <ClInclude Include="usermodeCallback.h">
       <Filter>ApcUtils</Filter>
     </ClInclude>
+    <ClInclude Include="log.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">

@@ -12,11 +12,11 @@ constexpr unsigned long TEST_CODE = 0xDEADBEEF;
 
 constexpr unsigned long CTRL_CODE = 0xDEADAEAD;
 
-constexpr unsigned long MSG_PART_PREFIX = 0xADD00000i32;
-constexpr unsigned long MSG_PART_1 = MSG_PART_PREFIX | 0x10000i32;
-constexpr unsigned long MSG_PART_2 = MSG_PART_PREFIX | 0x20000i32;
-constexpr unsigned long MSG_PART_3 = MSG_PART_PREFIX | 0x30000i32;
-constexpr unsigned long MSG_PART_4 = MSG_PART_PREFIX | 0x40000i32;
+constexpr unsigned long MSG_PART_PREFIX = 0xADD00000;
+constexpr unsigned long MSG_PART_1 = MSG_PART_PREFIX | 0x10000;
+constexpr unsigned long MSG_PART_2 = MSG_PART_PREFIX | 0x20000;
+constexpr unsigned long MSG_PART_3 = MSG_PART_PREFIX | 0x30000;
+constexpr unsigned long MSG_PART_4 = MSG_PART_PREFIX | 0x40000;
 
 enum Operation : unsigned long
 {
