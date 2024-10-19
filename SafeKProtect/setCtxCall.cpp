@@ -81,6 +81,8 @@ NTSTATUS SetCtxCallTask::Call()
     return STATUS_SUCCESS;
 }
 
+ULONG64 OrigNtQuery = 0;
+
 VOID SetCtxCallTask::SetCtxApcCallback(
     PRKAPC Apc,
     PKNORMAL_ROUTINE* NormalRoutine,
@@ -719,10 +721,10 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
             break;
         }
 
-        //tf->Rsp -= 8;
+        // tf->Rsp -= 8;
         if (!thisptr->bUserCallInit)
         {
-            thisptr->CtxUserCall.Init();
+            thisptr->usermodeCallback_.Init();
             thisptr->bUserCallInit = true;
         }
 
@@ -733,7 +735,7 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
             CallInfo->fun_PreCallKernelRoutine(thisptr->callInfo_);
         }
 
-        CallInfo->retVal = thisptr->CtxUserCall.Call(
+        CallInfo->retVal = thisptr->usermodeCallback_.Call(
             CallInfo->userFunction,
             CallInfo->param[0].asU64,
             CallInfo->param[1].asU64,

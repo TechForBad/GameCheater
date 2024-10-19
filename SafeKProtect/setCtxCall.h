@@ -25,21 +25,10 @@ struct _SET_CONTEXT_CALL_INFO
     } param[1];
 };
 
+class UsermodeCallback;
+
 class SetCtxCallTask
 {
-private:
-    PSET_CONTEXT_CALL_INFO callInfo_{ nullptr };
-
-    ULONG64 CommuFunction{ 0 };
-    PUCHAR CallRet{ NULL };
-
-    UsermodeCallback CtxUserCall;
-    bool bUserCallInit{ FALSE };
-
-    bool bInitCommu{ FALSE };
-
-    static ULONG64 OrigNtQuery;
-
 public:
     SetCtxCallTask(PSET_CONTEXT_CALL_INFO callInfo);
 
@@ -76,4 +65,15 @@ private:
     static PKTRAP_FRAME PspGetBaseTrapFrame(PETHREAD Thread);
 
     static NTSTATUS HkCommunicate(ULONG64 a1);
+
+private:
+    PSET_CONTEXT_CALL_INFO callInfo_{ NULL };
+
+    ULONG64 CommuFunction{ 0 };
+    PUCHAR CallRet{ NULL };
+
+    UsermodeCallback usermodeCallback_;
+    bool bUserCallInit{ FALSE };
+
+    bool bInitCommu{ FALSE };
 };

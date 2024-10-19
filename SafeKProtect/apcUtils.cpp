@@ -114,6 +114,17 @@ NTSTATUS ApcUtils::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN 
     return STATUS_SUCCESS;
 }
 
+
+using Fun_MiniDumpWriteDump = BOOL(__stdcall*)(
+    _In_ HANDLE hProcess,
+    _In_ DWORD ProcessId,
+    _In_ HANDLE hFile,
+    _In_ MINIDUMP_TYPE DumpType,
+    _In_opt_ PVOID ExceptionParam,
+    _In_opt_ PVOID UserStreamParam,
+    _In_opt_ PVOID CallbackParam
+    );
+
 NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
 {
     PEPROCESS pEprocess = NULL;

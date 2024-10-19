@@ -338,7 +338,7 @@ PVOID MemoryUtils::GetSystemModuleBase(LPCSTR moduleName, PULONG moduleSize)
     PRTL_PROCESS_MODULES processModules = (PRTL_PROCESS_MODULES)GetSystemInformation(SystemModuleInformation);
 
     PVOID moduleBase = NULL;
-    PRTL_PROCESS_MODULE_INFORMATION modules = processModules->Modules;
+    PRTL_PROCESS_MODULE_INFO modules = processModules->Modules;
     for (ULONG i = 0; i < processModules->NumberOfModules; ++i)
     {
         if (0 == strcmp((LPCSTR)modules[i].FullPathName, moduleName))
@@ -522,7 +522,7 @@ PVOID MemoryUtils::GetNtModuleBase(PULONG ntSize)
         return NULL;
     }
 
-    PRTL_PROCESS_MODULE_INFORMATION modules = processModules->Modules;
+    PRTL_PROCESS_MODULE_INFO modules = processModules->Modules;
     for (ULONG i = 0; i < processModules->NumberOfModules; ++i)
     {
         if ((NtCreateFile >= modules[i].ImageBase) && (NtCreateFile < (PVOID)((PUCHAR)modules[i].ImageBase + modules[i].ImageSize)))

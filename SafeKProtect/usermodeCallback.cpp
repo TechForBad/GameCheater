@@ -137,7 +137,4 @@ NTSTATUS UsermodeCallback::KeUserModeCall(
 
     TrapFrame->Rsp = OldStack;
     return Status;
-
 }
-
-UsermodeCallback UserCallback;

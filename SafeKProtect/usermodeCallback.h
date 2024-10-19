@@ -187,5 +187,3 @@ public:
         //ret
     }
 };
-
-extern UsermodeCallback UserCallback;

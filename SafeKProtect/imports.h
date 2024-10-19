@@ -75,7 +75,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemSessionProcessesInformation      // 53  
 } SYSTEM_INFORMATION_CLASS;
 
-typedef struct _SYSTEM_THREAD_INFORMATION
+typedef struct _SYSTEM_THREAD_INFO
 {
     LARGE_INTEGER KernelTime;
     LARGE_INTEGER UserTime;
@@ -88,7 +88,7 @@ typedef struct _SYSTEM_THREAD_INFORMATION
     ULONG ContextSwitches;
     ULONG ThreadState;
     KWAIT_REASON WaitReason;
-} SYSTEM_THREAD_INFORMATION, * PSYSTEM_THREAD_INFORMATION;
+} SYSTEM_THREAD_INFO, * PSYSTEM_THREAD_INFO;
 
 typedef struct _SYSTEM_PROCESS_INFO
 {
@@ -126,10 +126,10 @@ typedef struct _SYSTEM_PROCESS_INFO
     LARGE_INTEGER ReadTransferCount;
     LARGE_INTEGER WriteTransferCount;
     LARGE_INTEGER OtherTransferCount;
-    SYSTEM_THREAD_INFORMATION Threads[1];
+    SYSTEM_THREAD_INFO Threads[1];
 } SYSTEM_PROCESS_INFO, * PSYSTEM_PROCESS_INFO;
 
-typedef struct _RTL_PROCESS_MODULE_INFORMATION
+typedef struct _RTL_PROCESS_MODULE_INFO
 {
     HANDLE Section;
     PVOID MappedBase;
@@ -141,12 +141,12 @@ typedef struct _RTL_PROCESS_MODULE_INFORMATION
     USHORT LoadCount;
     USHORT OffsetToFileName;
     UCHAR  FullPathName[256];
-} RTL_PROCESS_MODULE_INFORMATION, * PRTL_PROCESS_MODULE_INFORMATION;
+} RTL_PROCESS_MODULE_INFO, * PRTL_PROCESS_MODULE_INFO;
 
 typedef struct _RTL_PROCESS_MODULES
 {
     ULONG NumberOfModules;
-    RTL_PROCESS_MODULE_INFORMATION Modules[1];
+    RTL_PROCESS_MODULE_INFO Modules[1];
 } RTL_PROCESS_MODULES, * PRTL_PROCESS_MODULES;
 
 typedef struct _PEB_LDR_DATA
@@ -241,7 +241,6 @@ KKERNEL_ROUTINE(
 );
 typedef KKERNEL_ROUTINE* PKKERNEL_ROUTINE;
 
-
 typedef
 _Function_class_(KRUNDOWN_ROUTINE)
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -261,38 +260,6 @@ typedef enum _KAPC_ENVIRONMENT
     CurrentApcEnvironment,
     InsertApcEnvironment
 } KAPC_ENVIRONMENT;
-
-NTKERNELAPI
-_IRQL_requires_same_
-_When_(Environment != OriginalApcEnvironment,
-       __drv_reportError("Caution: "
-                         "Using an APC environment other than the original environment can lead to "
-                         "a system bugcheck if the target thread is attached to a process with APCs "
-                         "disabled. APC environments should be used with care."))
-VOID
-KeInitializeApc(
-    _Out_ PRKAPC Apc,
-    _In_ PRKTHREAD Thread,
-    _In_ KAPC_ENVIRONMENT Environment,
-    _In_ PKKERNEL_ROUTINE KernelRoutine,
-    _In_opt_ PKRUNDOWN_ROUTINE RundownRoutine,
-    _In_opt_ PKNORMAL_ROUTINE NormalRoutine,
-    _In_opt_ KPROCESSOR_MODE ProcessorMode,
-    _In_opt_ PVOID NormalContext
-);
-
-NTKERNELAPI
-_Must_inspect_result_
-_IRQL_requires_max_(DISPATCH_LEVEL)
-_IRQL_requires_min_(PASSIVE_LEVEL)
-_IRQL_requires_same_
-BOOLEAN
-KeInsertQueueApc(
-    _Inout_ PRKAPC Apc,
-    _In_opt_ PVOID SystemArgument1,
-    _In_opt_ PVOID SystemArgument2,
-    _In_ KPRIORITY Increment
-);
 
 typedef struct _MEMORY_STRUCT
 {
@@ -371,16 +338,6 @@ typedef enum _MINIDUMP_TYPE
     MiniDumpValidTypeFlags = 0x01ffffff,
 } MINIDUMP_TYPE;
 
-using Fun_MiniDumpWriteDump = BOOL(__stdcall*)(
-    _In_ HANDLE hProcess,
-    _In_ DWORD ProcessId,
-    _In_ HANDLE hFile,
-    _In_ MINIDUMP_TYPE DumpType,
-    _In_opt_ PVOID ExceptionParam,
-    _In_opt_ PVOID UserStreamParam,
-    _In_opt_ PVOID CallbackParam
-    );
-
 typedef struct _KSTACK_CONTROL
 {
     ULONGLONG StackBase;                                                    //0x0
@@ -401,8 +358,6 @@ typedef struct _KSTACK_CONTROL
         ULONGLONG KernelShadowStackInitial;                                     //0x48
     } Previous;
 }KERNEL_STACK_CONTROL, KSTACK_CONTROL, * PKERNEL_STACK_CONTROL, * PKSTACK_CONTROL;
-
-#define KTRAP_FRAME_LENGTH sizeof(KTRAP_FRAME)
 
 typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY RUNTIME_FUNCTION, * PRUNTIME_FUNCTION;
 
@@ -482,7 +437,6 @@ typedef struct _PEB64
     ULONG64/*PPEB_LDR_DATA64*/ Ldr;
     RTL_USER_PROCESS_PARAMETERS* ProcessParameters;
 } PEB64, * PPEB64;
-
 
 typedef struct _PEB_LDR_DATA32
 {
@@ -574,7 +528,7 @@ extern "C"
 
     NTKERNELAPI PVOID NTAPI RtlFindExportedRoutineByName(_In_ PVOID ImageBase, _In_ PCCH RoutineNam);
 
-    extern "C" NTSTATUS ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
+    NTKERNELAPI NTSTATUS ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
 
     NTKERNELAPI PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(PVOID Base);
 
@@ -645,4 +599,36 @@ extern "C"
         OUT PVOID* OutputBuffer,
         IN PULONG OutputLength
     );
+
+    NTKERNELAPI
+        _IRQL_requires_same_
+        _When_(Environment != OriginalApcEnvironment,
+               __drv_reportError("Caution: "
+                                 "Using an APC environment other than the original environment can lead to "
+                                 "a system bugcheck if the target thread is attached to a process with APCs "
+                                 "disabled. APC environments should be used with care."))
+        VOID
+        KeInitializeApc(
+            _Out_ PRKAPC Apc,
+            _In_ PRKTHREAD Thread,
+            _In_ KAPC_ENVIRONMENT Environment,
+            _In_ PKKERNEL_ROUTINE KernelRoutine,
+            _In_opt_ PKRUNDOWN_ROUTINE RundownRoutine,
+            _In_opt_ PKNORMAL_ROUTINE NormalRoutine,
+            _In_opt_ KPROCESSOR_MODE ProcessorMode,
+            _In_opt_ PVOID NormalContext
+        );
+
+    NTKERNELAPI
+        _Must_inspect_result_
+        _IRQL_requires_max_(DISPATCH_LEVEL)
+        _IRQL_requires_min_(PASSIVE_LEVEL)
+        _IRQL_requires_same_
+        BOOLEAN
+        KeInsertQueueApc(
+            _Inout_ PRKAPC Apc,
+            _In_opt_ PVOID SystemArgument1,
+            _In_opt_ PVOID SystemArgument2,
+            _In_ KPRIORITY Increment
+        );
 }
