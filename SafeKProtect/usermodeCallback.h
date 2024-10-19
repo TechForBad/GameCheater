@@ -2,6 +2,16 @@
 
 #include "common.h"
 
+KTRAP_FRAME* PsGetTrapFrame(PETHREAD Thread = (PETHREAD)__readgsqword(0x188))
+{
+    return *(KTRAP_FRAME**)((ULONG64)Thread + 0x90);
+}
+
+void PsSetTrapFrame(PETHREAD Thread, KTRAP_FRAME* tf)
+{
+    *(KTRAP_FRAME**)((ULONG64)Thread + 0x90) = tf;
+}
+
 class UsermodeCallback
 {
 private:
@@ -95,7 +105,7 @@ public:
             //__dbgdb();
             //TrapFrame = StackWalkFindTrapFrame();
             //if (!TrapFrame)
-            __db();
+            DbgBreakPoint();
             //PsSetTrapFrame(KeGetCurrentThread(), TrapFrame);
         }
 

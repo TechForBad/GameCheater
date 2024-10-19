@@ -2,8 +2,6 @@
 
 #include "common.h"
 
-#include "usermodeCallback.h"
-
 typedef struct _SET_CONTEXT_CALL_INFO SET_CONTEXT_CALL_INFO, * PSET_CONTEXT_CALL_INFO;
 
 using Fun_PreUserCall = void(*)(PSET_CONTEXT_CALL_INFO);
@@ -26,6 +24,8 @@ struct _SET_CONTEXT_CALL_INFO
 
     KEVENT kEvent;
 };
+
+class UsermodeCallback;
 
 class SetCtxCallTask
 {
@@ -72,7 +72,7 @@ private:
     ULONG64 CommuFunction = 0;
     PUCHAR CallRet = 0;
 
-    UsermodeCallback CtxUserCall;
+    class UsermodeCallback CtxUserCall;
     bool bUserCallInit = false;
 
     bool bInitCommu = false;

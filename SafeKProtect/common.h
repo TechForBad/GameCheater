@@ -14,6 +14,8 @@
 #include "setCtxCall.h"
 #include "OperDispatcher.h"
 
+#define inl __forceinline
+
 #define ConstStrLen(Str) ((sizeof(Str) - sizeof(Str[0])) / sizeof(Str[0]))
 #define ToLower(Char) ((Char >= 'A' && Char <= 'Z') ? (Char + 32) : Char)
 #define ToUpper(Char) ((Char >= 'a' && Char <= 'z') ? (Char - 'a') : Char)
@@ -76,8 +78,6 @@ ProbeForWrite(pointer, size, TYPE_ALIGNMENT(BYTE))
 _Pragma("warning(suppress : 6001)")                                           \
 ProbeForRead(pointer, size, TYPE_ALIGNMENT(BYTE))
 
-#define inl __forceinline
-
 inl VOID WriteEnable()
 {
     UINT64 cr0 = __readcr0();
@@ -92,16 +92,6 @@ inl VOID WriteDisable()
     cr0 |= 0x10000;
     _enable();
     __writecr0(cr0);
-}
-
-inl KTRAP_FRAME* PsGetTrapFrame(PETHREAD Thread = (PETHREAD)__readgsqword(0x188))
-{
-    return *(KTRAP_FRAME**)((ULONG64)Thread + 0x90);
-}
-
-inl void PsSetTrapFrame(PETHREAD Thread, KTRAP_FRAME* tf)
-{
-    *(KTRAP_FRAME**)((ULONG64)Thread + 0x90) = tf;
 }
 
 inl BOOLEAN IsProcessExit(PEPROCESS epro)
