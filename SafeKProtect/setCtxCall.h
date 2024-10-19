@@ -69,13 +69,11 @@ private:
 private:
     PSET_CONTEXT_CALL_INFO callInfo_{ NULL };
 
-    ULONG64 CommuFunction{ 0 };
-    PUCHAR CallRet{ NULL };
+    ULONG64 commuFunction_{ 0 };
+    PUCHAR callRet_{ NULL };
 
     UsermodeCallback usermodeCallback_;
-    bool bUserCallInit{ FALSE };
+    bool bUserCallInit_{ FALSE };
 
-    bool bInitCommu{ FALSE };
-
-    ULONG64 OrigNtQuery{ 0 };
+    bool bInitCommu_{ FALSE };
 };

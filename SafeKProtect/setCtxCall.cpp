@@ -90,6 +90,8 @@ NTSTATUS SetCtxCallTask::Call()
     return STATUS_SUCCESS;
 }
 
+static ULONG64 g_OrigNtQuery = 0;
+
 VOID SetCtxCallTask::SetCtxApcCallback(
     PRKAPC Apc,
     PKNORMAL_ROUTINE* NormalRoutine,
@@ -175,7 +177,7 @@ VOID SetCtxCallTask::SetCtxApcCallback(
 
 	SetCtxCallTask* thisptr = *(SetCtxCallTask**)SystemArgument1;
 
-    if (!thisptr->bInitCommu)
+    if (!thisptr->bInitCommu_)
     {
         PVOID ntdll = GetModuleHandle("ntdll.dll");
         PVOID win32u = GetModuleHandle("win32u.dll");
@@ -185,53 +187,53 @@ VOID SetCtxCallTask::SetCtxApcCallback(
         // 00007ffe`88b4a36b lea  rcx, [rsp + 20h]
         // 00007ffe`88b4a370 call ntdll!NtContinue
 
-        thisptr->CallRet = MemoryUtils::FindPatternFromSection(ntdll, ".text", "E8 ? ? ? ? 33 D2 48 8D 4C 24 20 E8");
-		if (NULL == thisptr->CallRet)
+        thisptr->callRet_ = MemoryUtils::FindPatternFromSection(ntdll, ".text", "E8 ? ? ? ? 33 D2 48 8D 4C 24 20 E8");
+		if (NULL == thisptr->callRet_)
 		{
 			LOG_ERROR("FindPatternFromSection failed");
 			__db();
 			return;
 		}
 
-		if (RVA(thisptr->CallRet + 12, 5) != (ULONG64)GetProcAddress(ntdll, "NtContinue"))
+		if (RVA(thisptr->callRet_ + 12, 5) != (ULONG64)GetProcAddress(ntdll, "NtContinue"))
 		{
 			LOG_ERROR("GetProcAddress failed");
 			__db();
 			return;
 		}
 
-        thisptr->CallRet += 5;
+        thisptr->callRet_ += 5;
 
 		ULONG64 instr = (ULONG64)GetProcAddress(MemoryUtils::GetNtModuleBase(NULL), "KeQueryAuxiliaryCounterFrequency") + 4;
         LONG bbbb = *(LONG*)(instr + 3);
 
 		ULONG64 rva = instr + 7 + bbbb;
 
-        thisptr->OrigNtQuery = *(ULONG64*)rva;
+        g_OrigNtQuery = *(ULONG64*)rva;
         *(ULONG64*)rva = (ULONG64)HkCommunicate;
 
 		// your win32k io function or data ptr function;
-        thisptr->CommuFunction = (ULONG64)GetProcAddress(ntdll, "NtQueryAuxiliaryCounterFrequency");
-        if (NULL == thisptr->CommuFunction)
+        thisptr->commuFunction_ = (ULONG64)GetProcAddress(ntdll, "NtQueryAuxiliaryCounterFrequency");
+        if (NULL == thisptr->commuFunction_)
         {
             LOG_ERROR("GetProcAddress failed");
             __db();
             return;
         }
 
-        thisptr->bInitCommu = true;
+        thisptr->bInitCommu_ = true;
     }
 
     CONTEXT preCallCtx = origContext;
     preCallCtx.ContextFlags = CONTEXT_CONTROL;
     preCallCtx.Rsp -= 0x28 + 0x30 + sizeof(CONTEXT) * 2;  //alloc stack at the precall to prevent other apc destroy the stack
-    preCallCtx.Rip = (ULONG64)thisptr->CallRet;
+    preCallCtx.Rip = (ULONG64)thisptr->callRet_;
 
     // used in ntcontinue.
     CONTEXT callDriverCtx = origContext;
     callDriverCtx.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
     callDriverCtx.Rsp -= 0x30 + sizeof(CONTEXT);
-    callDriverCtx.Rip = (ULONG64)thisptr->CommuFunction;
+    callDriverCtx.Rip = (ULONG64)thisptr->commuFunction_;
     callDriverCtx.Rcx = callDriverCtx.Rsp + 0x18;
     callDriverCtx.Rdx = 0;
     callDriverCtx.R8 = 0;
@@ -240,7 +242,7 @@ VOID SetCtxCallTask::SetCtxApcCallback(
     *(ULONG64*)(callDriverCtx.Rsp + 0x10) = (ULONG64)thisptr;  // using a handle can be more secure. 
 
     memcpy((PVOID)(callDriverCtx.Rsp + 0x28), &origContext, sizeof(CONTEXT));
-    *(PVOID*)(callDriverCtx.Rsp) = thisptr->CallRet;
+    *(PVOID*)(callDriverCtx.Rsp) = thisptr->callRet_;
 
     memcpy((PVOID)(preCallCtx.Rsp + 0x20), &callDriverCtx, sizeof(CONTEXT));
 
@@ -716,10 +718,6 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
 {
 	__dbgdb();
 
-
-
-
-
     do
     {
 		KTRAP_FRAME* trapFrame = PsGetTrapFrame();
@@ -727,6 +725,7 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
             !IsValid(trapFrame->Rsp) ||
             (*(ULONG64*)(trapFrame->Rsp + 8) != PIPI_CALL_IDENTIFIYER))
         {
+			LOG_ERROR("PsGetTrapFrame failed");
 			__dbgdb();
             break;
         }
@@ -734,15 +733,16 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
         SetCtxCallTask* thisptr = *(SetCtxCallTask**)(trapFrame->Rsp + 0x10);
         if (!IsValid((ULONG64)thisptr))
         {
-			DbgBreakPoint();
+            LOG_ERROR("IsValid failed");
+			__dbgdb();
             break;
         }
 
         // tf->Rsp -= 8;
-        if (!thisptr->bUserCallInit)
+        if (!thisptr->bUserCallInit_)
         {
             thisptr->usermodeCallback_.Init();
-            thisptr->bUserCallInit = true;
+            thisptr->bUserCallInit_ = true;
         }
 
         PSET_CONTEXT_CALL_INFO callInfo = thisptr->callInfo_;
@@ -770,5 +770,5 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
         return STATUS_UNSUCCESSFUL;
     } while (false);
 
-    return ((NTSTATUS(*)(ULONG64 a1))thisptr->OrigNtQuery)(a1);
+    return ((NTSTATUS(*)(ULONG64 a1))g_OrigNtQuery)(a1);
 }

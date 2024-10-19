@@ -114,16 +114,6 @@ NTSTATUS ApcUtils::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN 
     return STATUS_SUCCESS;
 }
 
-using Fun_MiniDumpWriteDump = BOOL(__stdcall*)(
-    _In_ HANDLE hProcess,
-    _In_ DWORD ProcessId,
-    _In_ HANDLE hFile,
-    _In_ MINIDUMP_TYPE DumpType,
-    _In_opt_ PVOID ExceptionParam,
-    _In_opt_ PVOID UserStreamParam,
-    _In_opt_ PVOID CallbackParam
-    );
-
 NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
 {
     PEPROCESS pEprocess = NULL;
@@ -149,9 +139,9 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     }
 
     // 获取目标函数地址
-    Fun_MiniDumpWriteDump fun_MiniDumpWriteDump =
-        (Fun_MiniDumpWriteDump)MemoryUtils::GetModuleExportAddress("dbghelp.dll", "MiniDumpWriteDump");
-    if (NULL == fun_MiniDumpWriteDump)
+    // PVOID fun_MsgBoxW = MemoryUtils::GetModuleExportAddress("dbghelp.dll", "MiniDumpWriteDump");
+    PVOID fun_MsgBoxW = MemoryUtils::GetModuleExportAddress("user32.dll", "MessageBoxW");
+    if (NULL == fun_MsgBoxW)
     {
         LOG_ERROR("GetModuleExportAddress failed");
         ObDereferenceObject(pTargetEthread);
@@ -173,6 +163,16 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     }
 
     /*
+    using Fun_MiniDumpWriteDump = BOOL(__stdcall*)(
+        _In_ HANDLE hProcess,
+        _In_ DWORD ProcessId,
+        _In_ HANDLE hFile,
+        _In_ MINIDUMP_TYPE DumpType,
+        _In_opt_ PVOID ExceptionParam,
+        _In_opt_ PVOID UserStreamParam,
+        _In_opt_ PVOID CallbackParam
+        );
+
     MiniDumpWriteDump(
         hProcess,
         pid,
@@ -184,22 +184,26 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     );
     */
     callInfo->pTargetEthread = pTargetEthread;
-    callInfo->userFunction = (PVOID)fun_MiniDumpWriteDump;
-    callInfo->paramCnt = 7;
-    callInfo->param[0].asU64 = 0;
-    callInfo->param[1].asU64 = pid;
+    callInfo->userFunction = fun_MsgBoxW;
+    callInfo->paramCnt = 4;
+    callInfo->param[0].asU64 = 0;       // MB_OK
+    callInfo->param[1].asU64 = 0;
     callInfo->param[2].asU64 = 0;
-    callInfo->param[3].asU64 = MiniDumpWithFullMemory;
-    callInfo->param[4].asU64 = 0;
-    callInfo->param[5].asU64 = 0;
-    callInfo->param[6].asU64 = 0;
+    callInfo->param[3].asU64 = 0x40;    // MB_ICONINFORMATION;
     callInfo->fun_PreCallKernelRoutine = [](PSET_CONTEXT_CALL_INFO callInfo)
     {
+        PWCH UserStrMsg = (PWCH)UAlloc(0x1000);
+        PWCH UserStrTitle = (PWCH)UAlloc(0x1000);
+        wcscpy(UserStrMsg, L"Hi, I'm Pipi");
+        wcscpy(UserStrTitle, L"来自远程Call");
 
+        callInfo->param[1].asU64 = (ULONG64)UserStrMsg;
+        callInfo->param[2].asU64 = (ULONG64)UserStrTitle;
     };
     callInfo->fun_PostCallKernelRoutine = [](PSET_CONTEXT_CALL_INFO callInfo)
     {
-
+        UFree((PVOID)callInfo->param[1].asU64);
+        UFree((PVOID)callInfo->param[2].asU64);
     };
 
     KeInitializeEvent(&callInfo->kEvent, NotificationEvent, FALSE);
