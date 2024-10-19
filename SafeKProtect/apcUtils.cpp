@@ -114,7 +114,6 @@ NTSTATUS ApcUtils::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN 
     return STATUS_SUCCESS;
 }
 
-
 using Fun_MiniDumpWriteDump = BOOL(__stdcall*)(
     _In_ HANDLE hProcess,
     _In_ DWORD ProcessId,
@@ -143,14 +142,15 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     ntStatus = ProcessUtils::FindProcessEthread(pEprocess, &pTargetEthread);
     if (!NT_SUCCESS(ntStatus))
     {
-        LOG_ERROR("FindProcessThread failed, ntStatus: 0x%x", ntStatus);
+        LOG_ERROR("FindProcessEthread failed, ntStatus: 0x%x", ntStatus);
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
         return ntStatus;
     }
 
     // 获取目标函数地址
-    Fun_MiniDumpWriteDump fun_MiniDumpWriteDump = (Fun_MiniDumpWriteDump)MemoryUtils::GetModuleExportAddress("dbghelp.dll", "MiniDumpWriteDump");
+    Fun_MiniDumpWriteDump fun_MiniDumpWriteDump =
+        (Fun_MiniDumpWriteDump)MemoryUtils::GetModuleExportAddress("dbghelp.dll", "MiniDumpWriteDump");
     if (NULL == fun_MiniDumpWriteDump)
     {
         LOG_ERROR("GetModuleExportAddress failed");
@@ -201,21 +201,22 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     {
 
     };
+
     KeInitializeEvent(&callInfo->kEvent, NotificationEvent, FALSE);
 
     // 远程调用
     SetCtxCallTask setCtxCallTask(callInfo);
-    if (!NT_SUCCESS(setCtxCallTask.Call()))
-    {
-        LOG_ERROR("Call failed");
-        ObDereferenceObject(pTargetEthread);
-        ObDereferenceObject(pEprocess);
-        return STATUS_UNSUCCESSFUL;
-    }
+    ntStatus = setCtxCallTask.Call();
 
     ExFreePoolWithTag(callInfo, MEM_TAG);
     ObDereferenceObject(pTargetEthread);
     ObDereferenceObject(pEprocess);
+
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("Call failed");
+        return ntStatus;
+    }
 
     return STATUS_SUCCESS;
 }

@@ -62,7 +62,16 @@ NTSTATUS SetCtxCallTask::Call()
         return STATUS_UNSUCCESSFUL;
     }
 
-    KeInitializeApc(kernelModeApc, callInfo_->pTargetEthread, OriginalApcEnvironment, SetCtxApcCallback, NULL, NULL, KernelMode, NULL);
+    KeInitializeApc(
+		kernelModeApc,					// Apc
+		callInfo_->pTargetEthread,		// Thread
+        OriginalApcEnvironment,			// Environment
+		SetCtxApcCallback,				// KernelRoutine
+        NULL,							// RundownRoutine
+		NULL,							// NormalRoutine
+		KernelMode,						// ApcMode
+		NULL							// NormalContext
+    );
 
     if (!KeInsertQueueApc(kernelModeApc, this, 0, 2))
     {
@@ -81,8 +90,6 @@ NTSTATUS SetCtxCallTask::Call()
     return STATUS_SUCCESS;
 }
 
-ULONG64 OrigNtQuery = 0;
-
 VOID SetCtxCallTask::SetCtxApcCallback(
     PRKAPC Apc,
     PKNORMAL_ROUTINE* NormalRoutine,
@@ -91,81 +98,80 @@ VOID SetCtxCallTask::SetCtxApcCallback(
     PVOID* SystemArgument2
 )
 {
+	__dbgdb();
     ExFreePoolWithTag(Apc, MEM_TAG);
 
-    auto CurrentThread = KeGetCurrentThread();
-    if (PsGetTrapFrame(CurrentThread) != 0)
+    PETHREAD CurrentThread = KeGetCurrentThread();
+    if (PsGetTrapFrame(CurrentThread) != NULL)
     {
-        // apc comes from a interrupt
-        DbgBreakPoint();
+		LOG_ERROR("PsGetTrapFrame failed");
+		__dbgdb();
         // return;
     }
 
-    auto BaseTrapFrame = PspGetBaseTrapFrame(CurrentThread);
-    if (NULL == BaseTrapFrame)
+	PKTRAP_FRAME baseTrapFrame = PspGetBaseTrapFrame(CurrentThread);
+    if (NULL == baseTrapFrame)
     {
-        DbgBreakPoint();
+		LOG_ERROR("PspGetBaseTrapFrame failed");
+		__dbgdb();
         return;
     }
 
-    CONTEXT ContextRecord;
-    RtlCaptureContext(&ContextRecord);
+    CONTEXT contextRecord;
+    RtlCaptureContext(&contextRecord);
 
-    ULONG64 ControlPc;
-    ULONG64 ImageBase;
-    PRUNTIME_FUNCTION FunctionEntry;
-    PVOID HandlerData;
-    ULONG64 EstablisherFrame = 0;
+    KNONVOLATILE_CONTEXT_POINTERS contextPointers{};
+    contextPointers.Rbx = &contextRecord.Rbx;
+    contextPointers.Rsp = &contextRecord.Rsp;
+    contextPointers.Rbp = &contextRecord.Rbp;
+    contextPointers.Rsi = &contextRecord.Rsi;
+    contextPointers.Rdi = &contextRecord.Rdi;
+    contextPointers.R12 = &contextRecord.R12;
+    contextPointers.R13 = &contextRecord.R13;
+    contextPointers.R14 = &contextRecord.R14;
+    contextPointers.R15 = &contextRecord.R15;
 
-    KNONVOLATILE_CONTEXT_POINTERS ContextPointers{};
-    ContextPointers.Rbx = &ContextRecord.Rbx;
-    ContextPointers.Rsp = &ContextRecord.Rsp;
-    ContextPointers.Rbp = &ContextRecord.Rbp;
-    ContextPointers.Rsi = &ContextRecord.Rsi;
-    ContextPointers.Rdi = &ContextRecord.Rdi;
-    ContextPointers.R12 = &ContextRecord.R12;
-    ContextPointers.R13 = &ContextRecord.R13;
-    ContextPointers.R14 = &ContextRecord.R14;
-    ContextPointers.R15 = &ContextRecord.R15;
+    contextPointers.Xmm6 = &contextRecord.Xmm6;
+    contextPointers.Xmm7 = &contextRecord.Xmm7;
+    contextPointers.Xmm8 = &contextRecord.Xmm8;
+    contextPointers.Xmm9 = &contextRecord.Xmm9;
+    contextPointers.Xmm10 = &contextRecord.Xmm10;
+    contextPointers.Xmm11 = &contextRecord.Xmm11;
+    contextPointers.Xmm12 = &contextRecord.Xmm12;
+    contextPointers.Xmm13 = &contextRecord.Xmm13;
+    contextPointers.Xmm14 = &contextRecord.Xmm14;
+    contextPointers.Xmm15 = &contextRecord.Xmm15;
 
-    ContextPointers.Xmm6 = &ContextRecord.Xmm6;
-    ContextPointers.Xmm7 = &ContextRecord.Xmm7;
-    ContextPointers.Xmm8 = &ContextRecord.Xmm8;
-    ContextPointers.Xmm9 = &ContextRecord.Xmm9;
-    ContextPointers.Xmm10 = &ContextRecord.Xmm10;
-    ContextPointers.Xmm11 = &ContextRecord.Xmm11;
-    ContextPointers.Xmm12 = &ContextRecord.Xmm12;
-    ContextPointers.Xmm13 = &ContextRecord.Xmm13;
-    ContextPointers.Xmm14 = &ContextRecord.Xmm14;
-    ContextPointers.Xmm15 = &ContextRecord.Xmm15;
-
+	ULONG64 establisherFrame = 0;
     do
     {
-        ControlPc = ContextRecord.Rip;
-        FunctionEntry = RtlLookupFunctionEntry(ControlPc, &ImageBase, NULL);
-        if (FunctionEntry)
+		ULONG64 imageBase = 0;
+		PVOID handlerData = NULL;
+		ULONG64 controlPc = contextRecord.Rip;
+		PRUNTIME_FUNCTION functionEntry = RtlLookupFunctionEntry(controlPc, &imageBase, NULL);
+        if (functionEntry)
         {
             RtlVirtualUnwind(
                 UNW_FLAG_EHANDLER,
-                ImageBase,
-                ControlPc,
-                FunctionEntry,
-                &ContextRecord,
-                &HandlerData,
-                &EstablisherFrame,
-                &ContextPointers
+                imageBase,
+				controlPc,
+				functionEntry,
+                &contextRecord,
+                &handlerData,
+                &establisherFrame,
+                &contextPointers
             );
         }
         else
         {
-            ContextRecord.Rip = *(PULONG64)(ContextRecord.Rsp);
-            ContextRecord.Rsp += 8;
+            contextRecord.Rip = *(PULONG64)(contextRecord.Rsp);
+            contextRecord.Rsp += 8;
         }
-    } while (EstablisherFrame != (ULONG64)BaseTrapFrame);
+    } while (establisherFrame != (ULONG64)baseTrapFrame);
 
-    CONTEXT OrigContext;
-    OrigContext.ContextFlags = CONTEXT_FULL;
-    PspGetContext(BaseTrapFrame, &ContextPointers, &OrigContext);
+    CONTEXT origContext;
+    origContext.ContextFlags = CONTEXT_FULL;
+    PspGetContext(baseTrapFrame, &contextPointers, &origContext);
 
 	SetCtxCallTask* thisptr = *(SetCtxCallTask**)SystemArgument1;
 
@@ -179,71 +185,79 @@ VOID SetCtxCallTask::SetCtxApcCallback(
         // 00007ffe`88b4a36b lea  rcx, [rsp + 20h]
         // 00007ffe`88b4a370 call ntdll!NtContinue
 
-        thisptr->CallRet = MemoryUtils::FindPatternSect(ntdll, ".text", "E8 ? ? ? ? 33 D2 48 8D 4C 24 20 E8");
-		if (!thisptr->CallRet)
+        thisptr->CallRet = MemoryUtils::FindPatternFromSection(ntdll, ".text", "E8 ? ? ? ? 33 D2 48 8D 4C 24 20 E8");
+		if (NULL == thisptr->CallRet)
 		{
-			DbgBreakPoint();
+			LOG_ERROR("FindPatternFromSection failed");
+			__db();
+			return;
 		}
 
-		if (RVA(thisptr->CallRet + 12, 5) != (ULONG64)GetProcAddress(ntdll, ("NtContinue")))
+		if (RVA(thisptr->CallRet + 12, 5) != (ULONG64)GetProcAddress(ntdll, "NtContinue"))
 		{
-			DbgBreakPoint();
+			LOG_ERROR("GetProcAddress failed");
+			__db();
+			return;
 		}
 
         thisptr->CallRet += 5;
 
-        auto instr = (ULONG64)GetProcAddress(MemoryUtils::GetNtModuleBase(NULL), "KeQueryAuxiliaryCounterFrequency") + 4;
-        auto bbbb = *(LONG*)(instr + 3);
+		ULONG64 instr = (ULONG64)GetProcAddress(MemoryUtils::GetNtModuleBase(NULL), "KeQueryAuxiliaryCounterFrequency") + 4;
+        LONG bbbb = *(LONG*)(instr + 3);
 
-        auto rva = instr + 7 + bbbb;
+		ULONG64 rva = instr + 7 + bbbb;
 
-        OrigNtQuery = *(ULONG64*)rva;
+        thisptr->OrigNtQuery = *(ULONG64*)rva;
         *(ULONG64*)rva = (ULONG64)HkCommunicate;
 
-        thisptr->CommuFunction = (ULONG64)GetProcAddress(ntdll, "NtQueryAuxiliaryCounterFrequency"); //your win32k io function or data ptr function;
+		// your win32k io function or data ptr function;
+        thisptr->CommuFunction = (ULONG64)GetProcAddress(ntdll, "NtQueryAuxiliaryCounterFrequency");
+        if (NULL == thisptr->CommuFunction)
+        {
+            LOG_ERROR("GetProcAddress failed");
+            __db();
+            return;
+        }
+
         thisptr->bInitCommu = true;
     }
 
-    CONTEXT PreCallCtx = OrigContext;
-    PreCallCtx.ContextFlags = CONTEXT_CONTROL;
-    PreCallCtx.Rsp -= 0x28 + 0x30 + sizeof(CONTEXT) * 2; //alloc stack at the precall to prevent other apc destroy
-    // the stack
-    PreCallCtx.Rip = (ULONG64)thisptr->CallRet;
+    CONTEXT preCallCtx = origContext;
+    preCallCtx.ContextFlags = CONTEXT_CONTROL;
+    preCallCtx.Rsp -= 0x28 + 0x30 + sizeof(CONTEXT) * 2;  //alloc stack at the precall to prevent other apc destroy the stack
+    preCallCtx.Rip = (ULONG64)thisptr->CallRet;
 
     // used in ntcontinue.
-    CONTEXT CallDriverCtx = OrigContext;
-    CallDriverCtx.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
-    CallDriverCtx.Rsp -= 0x30 + sizeof(CONTEXT);
-    CallDriverCtx.Rip = (ULONG64)thisptr->CommuFunction;
-    CallDriverCtx.Rcx = CallDriverCtx.Rsp + 0x18;
-    CallDriverCtx.Rdx = 0;
-    CallDriverCtx.R8 = 0;
-    CallDriverCtx.R9 = 0;
-    *(ULONG64*)(CallDriverCtx.Rsp + 8) = PIPI_CALL_IDENTIFIYER;
-    *(ULONG64*)(CallDriverCtx.Rsp + 0x10) = (ULONG64)thisptr; // using a handle can be more secure. 
+    CONTEXT callDriverCtx = origContext;
+    callDriverCtx.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+    callDriverCtx.Rsp -= 0x30 + sizeof(CONTEXT);
+    callDriverCtx.Rip = (ULONG64)thisptr->CommuFunction;
+    callDriverCtx.Rcx = callDriverCtx.Rsp + 0x18;
+    callDriverCtx.Rdx = 0;
+    callDriverCtx.R8 = 0;
+    callDriverCtx.R9 = 0;
+    *(ULONG64*)(callDriverCtx.Rsp + 8) = PIPI_CALL_IDENTIFIYER;
+    *(ULONG64*)(callDriverCtx.Rsp + 0x10) = (ULONG64)thisptr;  // using a handle can be more secure. 
 
-    memcpy((PVOID)(CallDriverCtx.Rsp + 0x28), &OrigContext, sizeof(CONTEXT));
-    *(PVOID*)(CallDriverCtx.Rsp) = thisptr->CallRet;
+    memcpy((PVOID)(callDriverCtx.Rsp + 0x28), &origContext, sizeof(CONTEXT));
+    *(PVOID*)(callDriverCtx.Rsp) = thisptr->CallRet;
 
-    memcpy((PVOID)(PreCallCtx.Rsp + 0x20), &CallDriverCtx, sizeof(CONTEXT));
+    memcpy((PVOID)(preCallCtx.Rsp + 0x20), &callDriverCtx, sizeof(CONTEXT));
 
-    PspSetContext(BaseTrapFrame, &ContextPointers, &PreCallCtx, UserMode);
+    PspSetContext(baseTrapFrame, &contextPointers, &preCallCtx, UserMode);
 }
 
-PKTRAP_FRAME SetCtxCallTask::PspGetBaseTrapFrame(PETHREAD Thread)
+PKTRAP_FRAME SetCtxCallTask::PspGetBaseTrapFrame(PETHREAD pEthread)
 {
-    ULONG64 InitialStack;
-    PKERNEL_STACK_CONTROL StackControl;
-
-    InitialStack = *(ULONG64*)((ULONG64)Thread + 0x28);
-    StackControl = (PKERNEL_STACK_CONTROL)InitialStack;
-    while (StackControl->StackExpansion)
+	ULONG64 initialStack = *(ULONG64*)((ULONG64)pEthread + 0x28);
+	PKERNEL_STACK_CONTROL stackControl = (PKERNEL_STACK_CONTROL)initialStack;
+    while (stackControl->StackExpansion)
     {
-        InitialStack = StackControl->Previous.InitialStack;
-        StackControl = (PKERNEL_STACK_CONTROL)InitialStack;
+        initialStack = stackControl->Previous.InitialStack;
+        stackControl = (PKERNEL_STACK_CONTROL)initialStack;
     }
 
-    return (PKTRAP_FRAME)(InitialStack - KTRAP_FRAME_LENGTH);
+    return (PKTRAP_FRAME)(initialStack - KTRAP_FRAME_LENGTH);
 }
 
 ULONG64 SetCtxCallTask::SANITIZE_VA(
@@ -297,7 +311,6 @@ Return Value:
 		{
 			Va = SIGN_EXTEND_BIT(VirtualAddress, 48);
 		}
-
 	}
 	else
 	{
@@ -701,20 +714,24 @@ Return Value:
 
 NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
 {
-	DbgBreakPoint();
+	__dbgdb();
+
+
+
+
 
     do
     {
-        auto TrapFrame = PsGetTrapFrame();
-        if (!TrapFrame ||
-            !IsValid(TrapFrame->Rsp) ||
-            (*(ULONG64*)(TrapFrame->Rsp + 8) != PIPI_CALL_IDENTIFIYER))
+		KTRAP_FRAME* trapFrame = PsGetTrapFrame();
+        if (NULL == trapFrame ||
+            !IsValid(trapFrame->Rsp) ||
+            (*(ULONG64*)(trapFrame->Rsp + 8) != PIPI_CALL_IDENTIFIYER))
         {
-			DbgBreakPoint();
+			__dbgdb();
             break;
         }
 
-        SetCtxCallTask* thisptr = *(SetCtxCallTask**)(TrapFrame->Rsp + 0x10);
+        SetCtxCallTask* thisptr = *(SetCtxCallTask**)(trapFrame->Rsp + 0x10);
         if (!IsValid((ULONG64)thisptr))
         {
 			DbgBreakPoint();
@@ -728,30 +745,30 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
             thisptr->bUserCallInit = true;
         }
 
-        PSET_CONTEXT_CALL_INFO CallInfo = thisptr->callInfo_;
+        PSET_CONTEXT_CALL_INFO callInfo = thisptr->callInfo_;
 
-        if (CallInfo->fun_PreCallKernelRoutine)
+        if (callInfo->fun_PreCallKernelRoutine)
         {
-            CallInfo->fun_PreCallKernelRoutine(thisptr->callInfo_);
+            callInfo->fun_PreCallKernelRoutine(thisptr->callInfo_);
         }
 
-        CallInfo->retVal = thisptr->usermodeCallback_.Call(
-            CallInfo->userFunction,
-            CallInfo->param[0].asU64,
-            CallInfo->param[1].asU64,
-            CallInfo->param[2].asU64,
-            CallInfo->param[3].asU64
+        callInfo->retVal = thisptr->usermodeCallback_.Call(
+            callInfo->userFunction,
+            callInfo->param[0].asU64,
+            callInfo->param[1].asU64,
+            callInfo->param[2].asU64,
+            callInfo->param[3].asU64
 		);
 
-        if (CallInfo->fun_PostCallKernelRoutine)
+        if (callInfo->fun_PostCallKernelRoutine)
         {
-            CallInfo->fun_PostCallKernelRoutine(thisptr->callInfo_);
+            callInfo->fun_PostCallKernelRoutine(thisptr->callInfo_);
         }
 
-        KeSetEvent(&CallInfo->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
+        KeSetEvent(&callInfo->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
 
         return STATUS_UNSUCCESSFUL;
     } while (false);
 
-    return ((NTSTATUS(*)(ULONG64 a1))OrigNtQuery)(a1);
+    return ((NTSTATUS(*)(ULONG64 a1))thisptr->OrigNtQuery)(a1);
 }

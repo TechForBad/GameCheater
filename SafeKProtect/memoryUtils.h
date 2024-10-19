@@ -13,9 +13,11 @@ public:
 
     static BYTE* FindPattern(BYTE* dwAddress, UINT64 dwLen, const BYTE* bMask, char* szMask);
 
-    static PVOID FindSection(PVOID ModBase, const char* Name, PULONG SectSize);
+    // 获取section地址
+    static PVOID FindSection(PVOID moduleBase, LPCSTR sectionName, PULONG sectionSize);
 
-    static PUCHAR FindPatternSect(PVOID ModBase, const char* SectName, const char* Pattern);
+    // 从指定section中找到匹配地址
+    static PUCHAR FindPatternFromSection(PVOID moduleBase, LPCSTR sectionName, LPCSTR pattern);
 
     // 查询系统信息，返回值需要释放内存
     static PVOID GetSystemInformation(SYSTEM_INFORMATION_CLASS sysInfoClass);
@@ -26,9 +28,9 @@ public:
     // 根据模块名和导出名获取地址
     static PVOID GetModuleExportAddress(LPCSTR moduleName, LPCSTR exportName);
 
-    // 根据模块基地址和导出名获取地址
+    // 根据模块基地址和导出名获取函数地址
     static PVOID GetFunctionAddressFromExportTable(PVOID moduleBase, LPCSTR functionName);
-
+    // 根据模块基地址和导出名获取函数Index
     static ULONG GetFunctionIndexFromExportTable(PVOID pBaseAddress, LPCSTR pszFunctionName);
 
     // 获取进程模块基地址
@@ -39,8 +41,7 @@ public:
 
     // 获取SSDT地址
     static PSYSTEM_SERVICE_DESCRIPTOR_TABLE GetSSDTAddress();
-
-    // 获取SSDT地址
+    // 获取ShadowSSDT地址
     static PSYSTEM_SERVICE_DESCRIPTOR_TABLE GetShadowSSDTAddress();
 
     // 根据函数名获取SSDT函数地址
@@ -51,10 +52,8 @@ public:
 
     // 读物理地址
     static NTSTATUS ReadPhysicalMemory(IN PBYTE pPhySrc, IN ULONG readLen, IN PVOID pUserDst);
-
     // 写物理地址
     static NTSTATUS WritePhysicalMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN PVOID pPhyDst);
-
     // 获取虚拟地址对应的物理地址
     static NTSTATUS GetPhysicalAddress(IN DWORD pid, PVOID virtualAddress, IN PVOID* pPhysicalAddress);
 };

@@ -76,4 +76,6 @@ private:
     bool bUserCallInit{ FALSE };
 
     bool bInitCommu{ FALSE };
+
+    ULONG64 OrigNtQuery{ 0 };
 };

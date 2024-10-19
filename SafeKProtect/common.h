@@ -18,6 +18,15 @@
 
 #define inl __forceinline
 
+#define __db __debugbreak
+#ifdef _DEBUG
+#define dbgdb __db
+#define __dbgdb dbgdb
+#else
+#define dbgdb()
+#define __dbgdb()
+#endif
+
 #define ConstStrLen(Str) ((sizeof(Str) - sizeof(Str[0])) / sizeof(Str[0]))
 #define ToLower(Char) ((Char >= 'A' && Char <= 'Z') ? (Char + 32) : Char)
 #define ToUpper(Char) ((Char >= 'a' && Char <= 'z') ? (Char - 'a') : Char)
@@ -85,7 +94,7 @@ inl VOID WriteDisable()
 
 inl BOOLEAN IsProcessExit(PEPROCESS pEprocess)
 {
-    if (!pEprocess)
+    if (NULL == pEprocess)
     {
         return TRUE;
     }
@@ -99,14 +108,14 @@ inl VOID KSleep(LONG milliseconds)
     KeDelayExecutionThread(KernelMode, FALSE, &interval);
 }
 
-PVOID GetCurrentProcessModule(LPCSTR ModName, ULONG* ModSize = NULL, BOOL force64 = TRUE);
+PVOID GetCurrentProcessModule(LPCSTR moduleName, ULONG* moduleSize = NULL, BOOL force64 = TRUE);
 
 inl PVOID GetModuleHandle(LPCSTR ModName)
 {
     return GetCurrentProcessModule(ModName);
 }
 
-PVOID GetProcAddress(PVOID ModBase, LPCSTR Name);
+PVOID GetProcAddress(PVOID moduleBase, LPCSTR funcName);
 
 inl BOOLEAN IsValid(ULONG64 addr)
 {
@@ -127,9 +136,27 @@ inl void MemCpy(PVOID Destination, PVOID Source, SIZE_T Count)
     __movsb((PUCHAR)Destination, (PUCHAR)Source, Count);
 }
 
-PVOID UAlloc(ULONG Size, ULONG Protect = PAGE_READWRITE, BOOL load = TRUE);
+inl PVOID UAlloc(ULONG Size, ULONG Protect = PAGE_READWRITE, BOOL load = TRUE)
+{
+    PVOID AllocBase = nullptr; SIZE_T SizeUL = SizeAlign(Size);
+#define LOCK_VM_IN_RAM 2
+#define LOCK_VM_IN_WORKING_SET 1
+    if (!ZwAllocateVirtualMemory(ZwCurrentProcess(), &AllocBase, 0, &SizeUL, MEM_COMMIT, Protect))
+    {
+        // ZwLockVirtualMemory(ZwCurrentProcess(), &AllocBase, &SizeUL, LOCK_VM_IN_WORKING_SET | LOCK_VM_IN_RAM);
+        if (load)
+        {
+            MemZero(AllocBase, SizeUL);
+        }
+    }
+    return AllocBase;
+}
 
-VOID UFree(PVOID Ptr);
+inl VOID UFree(PVOID Ptr)
+{
+    SIZE_T SizeUL = 0;
+    ZwFreeVirtualMemory(ZwCurrentProcess(), &Ptr, &SizeUL, MEM_RELEASE);
+}
 
 inl KTRAP_FRAME* PsGetTrapFrame(PETHREAD pEthread = (PETHREAD)__readgsqword(0x188))
 {

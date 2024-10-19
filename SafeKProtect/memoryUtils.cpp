@@ -9,21 +9,21 @@ __inline NTSTATUS copy_memory(PEPROCESS src_proc, PEPROCESS target_proc, PVOID s
     return MmCopyVirtualMemory(target_proc, src, src_proc, dst, size, UserMode, &bytes);
 }
 
-NTSTATUS KeReadVirtualMemory(PEPROCESS Process, PVOID SourceAddress, PVOID TargetAddress, SIZE_T Size)
+NTSTATUS KeReadVirtualMemory(PEPROCESS pEprocess, PVOID src, PVOID dst, SIZE_T size)
 {
-    SIZE_T Bytes;
-    if (NT_SUCCESS(MmCopyVirtualMemory(Process, SourceAddress, PsGetCurrentProcess(),
-                                       TargetAddress, Size, KernelMode, &Bytes)))
+    SIZE_T bytes;
+    if (NT_SUCCESS(MmCopyVirtualMemory(pEprocess, src, PsGetCurrentProcess(),
+                                       dst, size, KernelMode, &bytes)))
         return STATUS_SUCCESS;
     else
         return STATUS_ACCESS_DENIED;
 }
 
-NTSTATUS KeWriteVirtualMemory(PEPROCESS Process, PVOID SourceAddress, PVOID TargetAddress, SIZE_T Size)
+NTSTATUS KeWriteVirtualMemory(PEPROCESS pEprocess, PVOID src, PVOID dst, SIZE_T size)
 {
-    SIZE_T Bytes;
-    if (NT_SUCCESS(MmCopyVirtualMemory(PsGetCurrentProcess(), SourceAddress, Process,
-                                       TargetAddress, Size, KernelMode, &Bytes)))
+    SIZE_T bytes;
+    if (NT_SUCCESS(MmCopyVirtualMemory(PsGetCurrentProcess(), src, pEprocess,
+                                       dst, size, KernelMode, &bytes)))
         return STATUS_SUCCESS;
     else
         return STATUS_ACCESS_DENIED;
@@ -214,35 +214,38 @@ BYTE* MemoryUtils::FindPattern(BYTE* pAddress, UINT64 dwLen, const BYTE* bMask, 
 #define IMAGE_FIRST_SECTION(NtHeader) (PIMAGE_SECTION_HEADER)(NtHeader + 1)
 #define NT_HEADER(ModBase) (PIMAGE_NT_HEADERS)((ULONG64)(ModBase) + ((PIMAGE_DOS_HEADER)(ModBase))->e_lfanew)
 
-PVOID MemoryUtils::FindSection(PVOID ModBase, const char* Name, PULONG SectSize)
+PVOID MemoryUtils::FindSection(PVOID moduleBase, LPCSTR sectionName, PULONG sectionSize)
 {
     //get & enum sections
-    PIMAGE_NT_HEADERS NT_Header = NT_HEADER(ModBase);
-    PIMAGE_SECTION_HEADER Sect = IMAGE_FIRST_SECTION(NT_Header);
+    PIMAGE_NT_HEADERS pNtHeader = NT_HEADER(moduleBase);
+    PIMAGE_SECTION_HEADER pSectionHeader = IMAGE_FIRST_SECTION(pNtHeader);
 
-    for (PIMAGE_SECTION_HEADER pSect = Sect; pSect < Sect + NT_Header->FileHeader.NumberOfSections; pSect++)
+    for (PIMAGE_SECTION_HEADER pCurSection = pSectionHeader;
+         pCurSection < pSectionHeader + pNtHeader->FileHeader.NumberOfSections;
+         ++pCurSection)
     {
-        //copy section name
-        char SectName[9]; SectName[8] = 0;
-        *(ULONG64*)&SectName[0] = *(ULONG64*)&pSect->Name[0];
+        // copy section name
+        CHAR curSectionName[9];
+        curSectionName[8] = '\0';
+        *(ULONG64*)&curSectionName[0] = *(ULONG64*)&pCurSection->Name[0];
 
-        //check name
-        if (StrICmp(Name, SectName, true))
+        // check name
+        if (StrICmp(sectionName, curSectionName, true))
         {
-            //save size
-            if (SectSize)
+            // save size
+            if (sectionSize)
             {
-                ULONG SSize = SizeAlign(max(pSect->Misc.VirtualSize, pSect->SizeOfRawData));
-                *SectSize = SSize;
+                ULONG SSize = SizeAlign(max(pCurSection->Misc.VirtualSize, pCurSection->SizeOfRawData));
+                *sectionSize = SSize;
             }
 
-            //ret full sect ptr
-            return (PVOID)((ULONG64)ModBase + pSect->VirtualAddress);
+            // ret full sect ptr
+            return (PVOID)((ULONG64)moduleBase + pCurSection->VirtualAddress);
         }
     }
 
-    //no section
-    return nullptr;
+    // no section
+    return NULL;
 }
 
 // find pattern utils
@@ -250,66 +253,67 @@ PVOID MemoryUtils::FindSection(PVOID ModBase, const char* Name, PULONG SectSize)
 #define GetBits(x) (InRange(x, '0', '9') ? (x - '0') : (InRange(x, 'a', 'z') ? ((x - 'a') + 0xA) : ((x - 'A') + 0xA)) )
 #define GetByte(x) ((UCHAR)(GetBits(x[0]) << 4 | GetBits(x[1])))
 
-static bool readByte(PVOID addr, UCHAR* ret)
+PUCHAR MemoryUtils::FindPatternFromSection(PVOID moduleBase, LPCSTR sectionName, LPCSTR pattern)
 {
-    *ret = *(volatile char*)addr;
-    return true;
-}
-
-PUCHAR MemoryUtils::FindPatternSect(PVOID ModBase, const char* SectName, const char* Pattern)
-{
-    if (!ModBase) return nullptr;
-
-    //get sect range
-    ULONG SectSize;
-    PUCHAR ModuleStart = (PUCHAR)FindSection(ModBase, SectName, &SectSize);
-    PUCHAR ModuleEnd = ModuleStart + SectSize;
-
-    if (!ModuleStart) return nullptr;
-
-    //scan pattern main
-    PUCHAR FirstMatch = nullptr;
-    const char* CurPatt = Pattern;
-    if (*Pattern == '\0')
-        CurPatt++;
-
-    for (; ModuleStart < ModuleEnd; ++ModuleStart)
+    if (NULL == moduleBase)
     {
-        bool SkipByte = (*CurPatt == '\?');
+        LOG_ERROR("Param Error");
+        return NULL;
+    }
 
-        //hp(ModuleStart);
-        UCHAR byte1;
-        if (!readByte(ModuleStart, &byte1))
-        {
-            auto addr2 = (ULONG64)ModuleStart;
-            addr2 &= 0xFFFFFFFFFFFFF000;
-            addr2 += 0xFFF;
-            ModuleStart = (PUCHAR)addr2;
-            //sp("123");
-            goto Skip;
-        }
+    ULONG sectionSize = 0;
+    PUCHAR sectionStart = (PUCHAR)FindSection(moduleBase, sectionName, &sectionSize);
+    PUCHAR sectionEnd = sectionStart + sectionSize;
+    if (NULL == sectionStart || 0 == sectionSize)
+    {
+        LOG_ERROR("FindSection failed");
+        return NULL;
+    }
 
-        if (SkipByte || byte1 == GetByte(CurPatt))
+    // scan pattern main
+    PUCHAR firstMatch = NULL;
+    LPCSTR curPattern = pattern;
+    if (*pattern == '\0')
+    {
+        curPattern++;
+    }
+
+    for (; sectionStart < sectionEnd; ++sectionStart)
+    {
+        BOOL skipByte = (*curPattern == '\?');
+
+        UCHAR byte1 = *(PUCHAR)sectionStart;
+
+        if (skipByte || byte1 == GetByte(curPattern))
         {
-            if (!FirstMatch) FirstMatch = ModuleStart;
-            if (SkipByte)
-                CurPatt += 2;
+            if (!firstMatch)
+            {
+                firstMatch = sectionStart;
+            }
+            if (skipByte)
+            {
+                curPattern += 2;
+            }
             else
-                CurPatt += 3;
-            if (CurPatt[-1] == 0) return FirstMatch;
+            {
+                curPattern += 3;
+            }
+            if (curPattern[-1] == 0)
+            {
+                return firstMatch;
+            }
         }
-
-        else if (FirstMatch)
+        else if (firstMatch)
         {
-            ModuleStart = FirstMatch;
+            sectionStart = firstMatch;
         Skip:
-            FirstMatch = nullptr;
-            CurPatt = Pattern;
+            firstMatch = NULL;
+            curPattern = pattern;
         }
     }
 
-    //failed
-    return nullptr;
+    // failed
+    return NULL;
 }
 
 PVOID MemoryUtils::GetSystemInformation(SYSTEM_INFORMATION_CLASS sysInfoClass)
@@ -336,6 +340,11 @@ PVOID MemoryUtils::GetSystemInformation(SYSTEM_INFORMATION_CLASS sysInfoClass)
 PVOID MemoryUtils::GetSystemModuleBase(LPCSTR moduleName, PULONG moduleSize)
 {
     PRTL_PROCESS_MODULES processModules = (PRTL_PROCESS_MODULES)GetSystemInformation(SystemModuleInformation);
+    if (NULL == processModules)
+    {
+        LOG_ERROR("GetSystemInformation failed");
+        return NULL;
+    }
 
     PVOID moduleBase = NULL;
     PRTL_PROCESS_MODULE_INFO modules = processModules->Modules;

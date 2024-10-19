@@ -40,11 +40,9 @@ PVOID ProcessUtils::GetModuleBaseFor64BitProcess(PEPROCESS proc, PCWSTR moduleNa
     KAPC_STATE state;
     KeStackAttachProcess(proc, &state);
 
-    LARGE_INTEGER interval = { 0 };
-    interval.QuadPart = -100ll * 10 * 1000;
     for (int i = 0; !pPeb->Ldr && i < 10; ++i)
     {
-        KeDelayExecutionThread(KernelMode, FALSE, &interval);
+        KSleep(100);
     }
 
     PPEB_LDR_DATA pLdr = (PPEB_LDR_DATA)pPeb->Ldr;
