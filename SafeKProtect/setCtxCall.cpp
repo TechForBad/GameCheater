@@ -114,6 +114,7 @@ VOID SetCtxCallTask::SetCtxApcCallback(
         return;
     }
 
+	// 获取当前线程的基础陷阱帧
 	PKTRAP_FRAME baseTrapFrame = PspGetBaseTrapFrame(pCurEthread);
     if (NULL == baseTrapFrame)
     {
@@ -122,6 +123,7 @@ VOID SetCtxCallTask::SetCtxApcCallback(
         return;
     }
 
+	// 捕获当前的执行上下文
     CONTEXT contextRecord;
     RtlCaptureContext(&contextRecord);
 
@@ -147,32 +149,48 @@ VOID SetCtxCallTask::SetCtxApcCallback(
     contextPointers.Xmm14 = &contextRecord.Xmm14;
     contextPointers.Xmm15 = &contextRecord.Xmm15;
 
-	ULONG64 establisherFrame = 0;
-    do
+	__try
     {
-		ULONG64 imageBase = 0;
-		PVOID handlerData = NULL;
-		ULONG64 controlPc = contextRecord.Rip;
-		PRUNTIME_FUNCTION functionEntry = RtlLookupFunctionEntry(controlPc, &imageBase, NULL);
-        if (functionEntry)
+        ULONG64 imageBase = 0;
+        PVOID handlerData = NULL;
+        ULONG64 establisherFrame = 0;
+        do
         {
-            RtlVirtualUnwind(
-                UNW_FLAG_EHANDLER,
-                imageBase,
-				controlPc,
-				functionEntry,
-                &contextRecord,
-                &handlerData,
-                &establisherFrame,
-                &contextPointers
-            );
-        }
-        else
-        {
-            contextRecord.Rip = *(PULONG64)(contextRecord.Rsp);
-            contextRecord.Rsp += 8;
-        }
-    } while (establisherFrame != (ULONG64)baseTrapFrame);
+            if (!IsValid(contextRecord.Rsp))
+            {
+                LOG_ERROR("valid rsp, context record rsp: 0x%llx", contextRecord.Rsp);
+                KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
+                return;
+            }
+
+            ULONG64 controlPc = contextRecord.Rip;
+            PRUNTIME_FUNCTION functionEntry = RtlLookupFunctionEntry(controlPc, &imageBase, NULL);
+            if (functionEntry)
+            {
+                RtlVirtualUnwind(
+                    UNW_FLAG_EHANDLER,
+                    imageBase,
+                    controlPc,
+                    functionEntry,
+                    &contextRecord,
+                    &handlerData,
+                    &establisherFrame,
+                    &contextPointers
+                );
+            }
+            else
+            {
+                contextRecord.Rip = *(PULONG64)(contextRecord.Rsp);
+                contextRecord.Rsp += 8;
+            }
+        } while (establisherFrame != (ULONG64)baseTrapFrame);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		LOG_ERROR("Trigger Exception 0x%x", GetExceptionCode());
+        KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
+        return;
+	}
 
     CONTEXT origContext;
     origContext.ContextFlags = CONTEXT_FULL;
