@@ -6,7 +6,7 @@ public:
     UsermodeCallback() = default;
     ~UsermodeCallback();
 
-    void Init();
+    BOOL Init();
 
     NTSTATUS KeUserModeCall(
         IN ULONG ApiNumber,
@@ -187,9 +187,9 @@ private:
         DWORD64 KernelShadowStackInitial
         );
 
-    KiCallUserModefn KiCallUserMode = (KiCallUserModefn)0xfffff801735c4ac0;
-    MmCreateKernelStackfn MmCreateKernelStack = (MmCreateKernelStackfn)0xfffff8017346c210;
-    MmDeleteKernelStackfn MmDeleteKernelStack = (MmDeleteKernelStackfn)0xfffff8017346d1e0;
+    KiCallUserModefn fun_KiCallUserMode_ = (KiCallUserModefn)0xfffff801735c4ac0;
+    MmCreateKernelStackfn fun_MmCreateKernelStack_ = (MmCreateKernelStackfn)0xfffff8017346c210;
+    MmDeleteKernelStackfn fun_MmDeleteKernelStack_ = (MmDeleteKernelStackfn)0xfffff8017346d1e0;
 
     // PVOID KiCallUserMode;
     // PVOID PspGetContextThreadInternal;

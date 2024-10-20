@@ -743,7 +743,11 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
         }
 
         // tf->Rsp -= 8;
-		thisptr->usermodeCallback_.Init();
+		if (!thisptr->bUserCallInit_)
+        {
+			thisptr->usermodeCallback_.Init();
+			thisptr->bUserCallInit_ = TRUE;
+		}
 
         PSET_CONTEXT_CALL_INFO callInfo = thisptr->callInfo_;
 

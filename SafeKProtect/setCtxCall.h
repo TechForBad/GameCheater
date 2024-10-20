@@ -74,4 +74,5 @@ private:
     PUCHAR callRet_{ NULL };
 
     UsermodeCallback usermodeCallback_;
+    BOOL bUserCallInit_{ FALSE };
 };

@@ -20,16 +20,32 @@ typedef struct _VM_INFORMATION
     ULONG64 ExpectedFileOffset;
 } VM_INFORMATION, * PVM_INFORMATION;
 
-void UsermodeCallback::Init()
+BOOL UsermodeCallback::Init()
 {
     // KiCallUserMode = (KiCallUserModefn)0xfffff801735c4ac0;
     // MmCreateKernelStack = (MmCreateKernelStackfn)0xfffff8017346c210;
     // MmDeleteKernelStack = (MmDeleteKernelStackfn)0xfffff8017346d1e0;
 
     contextUser_ = (CONTEXT*)UAlloc(sizeof(CONTEXT), PAGE_READWRITE);
+    if (NULL == contextUser_)
+    {
+        LOG_ERROR("UAlloc failed");
+        return FALSE;
+    }
+
     ULONG ntdllSize = 0;
     PVOID ntdllBase = GetCurrentProcessModule("ntdll.dll", &ntdllSize);
+    if ((NULL == ntdllBase) || (0 == ntdllSize))
+    {
+        LOG_ERROR("GetCurrentProcessModule failed");
+        return FALSE;
+    }
     ntContinue_ = GetProcAddress(ntdllBase, "NtContinue");
+    if (NULL == ntContinue_)
+    {
+        LOG_ERROR("GetProcAddress failed");
+        return FALSE;
+    }
 
     CFG_CALL_TARGET_INFO targetInfo[1];
     targetInfo[0].Flags = 0x00000001;
@@ -69,15 +85,17 @@ void UsermodeCallback::Init()
     */
     NTSTATUS ntStatus = ZwSetInformationVirtualMemory((HANDLE)-1, (VIRTUAL_MEMORY_INFORMATION_CLASS)2, 1, &rangeEntry, (PVOID)&vmInfo, 0x28);
 
-    //__db();
-    //MmCreateKernelStack = (pv)(RVA(FindPatternSect(KBase, (".text"), ("E8 ? ? ? ? 41 83 CF 04")), 5));
-    //ImpCall(DbgPrintEx, 0, 0, "MmCreateKernelStack %llx\n", MmCreateKernelStack);
-    //__db();
-    //MmDeleteKernelStack = (pv)(RVA(FindPatternSect(KBase, ("PAGE"), ("8B D5 E8 ? ? ? ? 48 8B 05 ? ? ? ? 48 05 ? ? ? ?")), 7));
-    //ImpCall(DbgPrintEx, 0, 0, "MmDeleteKernelStack %llx\n", MmDeleteKernelStack);
-    //__db();
-    //KiCallUserMode = (pv)(RVA(FindPatternSect(KBase, ("PAGE"), ("4D 8D ? ? 48 8B 94 24 ? ? ? ? 48 8B 8C 24 ? ? ? ? E8 ? ? ? ?")), 25));
-    //ImpCall(DbgPrintEx, 0, 0, "KiCallUserMode %llx\n", KiCallUserMode);
+    // __db();
+    // MmCreateKernelStack = (pv)(RVA(FindPatternSect(KBase, (".text"), ("E8 ? ? ? ? 41 83 CF 04")), 5));
+    // ImpCall(DbgPrintEx, 0, 0, "MmCreateKernelStack %llx\n", MmCreateKernelStack);
+    // __db();
+    // MmDeleteKernelStack = (pv)(RVA(FindPatternSect(KBase, ("PAGE"), ("8B D5 E8 ? ? ? ? 48 8B 05 ? ? ? ? 48 05 ? ? ? ?")), 7));
+    // ImpCall(DbgPrintEx, 0, 0, "MmDeleteKernelStack %llx\n", MmDeleteKernelStack);
+    // __db();
+    // KiCallUserMode = (pv)(RVA(FindPatternSect(KBase, ("PAGE"), ("4D 8D ? ? 48 8B 94 24 ? ? ? ? 48 8B 8C 24 ? ? ? ? E8 ? ? ? ?")), 25));
+    // ImpCall(DbgPrintEx, 0, 0, "KiCallUserMode %llx\n", KiCallUserMode);
+
+    return TRUE;
 }
 
 UsermodeCallback::~UsermodeCallback()
@@ -106,7 +124,7 @@ NTSTATUS UsermodeCallback::KeUserModeCall(
     auto CurrentThread = __readgsqword(0x188);
     *(UCHAR*)(CurrentThread + 0x2db) = *(UCHAR*)(CurrentThread + 0x2db) + 1; // CallbackNestingLevel++
 
-    DWORD64 StackBase = (DWORD64)MmCreateKernelStack(FALSE, 0, 0);
+    DWORD64 StackBase = (DWORD64)fun_MmCreateKernelStack_(FALSE, 0, 0);
 
     PKSTACK_CONTROL KSC = (PKSTACK_CONTROL)(StackBase - sizeof(KSTACK_CONTROL));
     KSC->StackBase = StackBase;
@@ -131,7 +149,7 @@ NTSTATUS UsermodeCallback::KeUserModeCall(
 
     TrapFrame->Rsp = (ULONG64)CalloutFrame;
 
-    Status = KiCallUserMode(
+    Status = fun_KiCallUserMode_(
         OutputBuffer,
         OutputLength,
         KSC,
@@ -142,7 +160,7 @@ NTSTATUS UsermodeCallback::KeUserModeCall(
 
     *(UCHAR*)(CurrentThread + 0x2db) = *(UCHAR*)(CurrentThread + 0x2db) - 1; // CallbackNestingLevel--
 
-    MmDeleteKernelStack(StackBase, FALSE);
+    fun_MmDeleteKernelStack_(StackBase, FALSE);
 
     TrapFrame->Rsp = OldStack;
     return Status;
