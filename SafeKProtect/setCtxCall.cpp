@@ -50,6 +50,8 @@
 
 SetCtxCallTask::SetCtxCallTask(PSET_CONTEXT_CALL_INFO callInfo)
 {
+    KeInitializeEvent(&kEvent, NotificationEvent, FALSE);
+
     callInfo_ = callInfo;
 }
 
@@ -80,7 +82,7 @@ NTSTATUS SetCtxCallTask::Call()
         return STATUS_NOT_CAPABLE;
     }
 
-    NTSTATUS ntStatus = KeWaitForSingleObject(&callInfo_->kEvent, Executive, KernelMode, FALSE, NULL);
+    NTSTATUS ntStatus = KeWaitForSingleObject(&kEvent, Executive, KernelMode, FALSE, NULL);
     if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("KeWaitForSingleObject failed, ntStatus: 0x%x", ntStatus);
@@ -102,10 +104,13 @@ VOID SetCtxCallTask::SetCtxApcCallback(
 {
     ExFreePoolWithTag(Apc, MEM_TAG);
 
+    SetCtxCallTask* thisptr = *(SetCtxCallTask**)SystemArgument1;
+
     PETHREAD pCurEthread = KeGetCurrentThread();
     if (PsGetTrapFrame(pCurEthread) != NULL)
     {
 		LOG_ERROR("PsGetTrapFrame failed");
+		KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
         return;
     }
 
@@ -113,6 +118,7 @@ VOID SetCtxCallTask::SetCtxApcCallback(
     if (NULL == baseTrapFrame)
     {
 		LOG_ERROR("PspGetBaseTrapFrame failed");
+		KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
         return;
     }
 
@@ -172,13 +178,12 @@ VOID SetCtxCallTask::SetCtxApcCallback(
     origContext.ContextFlags = CONTEXT_FULL;
     PspGetContext(baseTrapFrame, &contextPointers, &origContext);
 
-	SetCtxCallTask* thisptr = *(SetCtxCallTask**)SystemArgument1;
-
     PVOID hNtdll = GetModuleHandle("ntdll.dll");
     PVOID hWin32u = GetModuleHandle("win32u.dll");
 	if (NULL == hNtdll || NULL == hWin32u)
 	{
         LOG_ERROR("GetModuleHandle failed");
+		KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
         return;
 	}
 
@@ -191,32 +196,41 @@ VOID SetCtxCallTask::SetCtxApcCallback(
     if (NULL == thisptr->callRet_)
     {
         LOG_ERROR("FindPatternFromSection failed");
+		KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
         return;
     }
 
     if (RVA(thisptr->callRet_ + 12, 5) != (ULONG64)GetProcAddress(hNtdll, "NtContinue"))
     {
         LOG_ERROR("GetProcAddress failed");
+		KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
         return;
     }
-
     thisptr->callRet_ += 5;
-
-    ULONG64 instr = (ULONG64)GetProcAddress(MemoryUtils::GetNtModuleBase(NULL), "KeQueryAuxiliaryCounterFrequency") + 4;
-    LONG bbbb = *(LONG*)(instr + 3);
-
-    ULONG64 rva = instr + 7 + bbbb;
-
-    g_OrigNtQuery = *(ULONG64*)rva;
-    *(ULONG64*)rva = (ULONG64)HkCommunicate;
 
     // your win32k io function or data ptr function;
     thisptr->commuFunction_ = (ULONG64)GetProcAddress(hNtdll, "NtQueryAuxiliaryCounterFrequency");
     if (NULL == thisptr->commuFunction_)
     {
         LOG_ERROR("GetProcAddress failed");
+		KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
         return;
     }
+
+	PVOID fun_KeQueryAuxiliaryCounterFrequency = GetProcAddress(MemoryUtils::GetNtModuleBase(NULL), "KeQueryAuxiliaryCounterFrequency");
+	if (NULL == fun_KeQueryAuxiliaryCounterFrequency)
+	{
+        LOG_ERROR("GetProcAddress failed");
+        KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
+        return;
+	}
+
+    ULONG64 instr = (ULONG64)fun_KeQueryAuxiliaryCounterFrequency + 4;
+    LONG bbbb = *(LONG*)(instr + 3);
+    ULONG64 rva = instr + 7 + bbbb;
+
+    g_OrigNtQuery = *(ULONG64*)rva;
+    *(ULONG64*)rva = (ULONG64)HkCommunicate;
 
     CONTEXT preCallCtx = origContext;
     preCallCtx.ContextFlags = CONTEXT_CONTROL;
@@ -751,7 +765,7 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
             callInfo->fun_PostCallKernelRoutine(thisptr->callInfo_);
         }
 
-        KeSetEvent(&callInfo->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
+        KeSetEvent(&thisptr->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
 
         return STATUS_UNSUCCESSFUL;
     } while (FALSE);

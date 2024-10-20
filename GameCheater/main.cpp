@@ -28,21 +28,11 @@ int main()
         return -1;
     }
 
-    /*
     // 获取dwm进程号
     DWORD pid = 0;
     printf("Input Process Id: ");
     std::cin >> pid;
     printf("Output: %d\n", pid);
-    */
-
-    DWORD pid = 0;
-    if (!tool::GetProcessId(L"windbg.exe", &pid))
-    {
-        LOG("GetProcessId failed");
-        return -1;
-    }
-    LOG("find process id: %d", pid);
 
     // 获取dll文件全路径
     wchar_t dumpPath[MAX_PATH] = { 0 };
@@ -59,6 +49,16 @@ int main()
         LOG("ProcessCreateFullDump failed");
         return -1;
     }
+
+    /*
+    DWORD pid = 0;
+    if (!tool::GetProcessId(L"windbg.exe", &pid))
+    {
+        LOG("GetProcessId failed");
+        return -1;
+    }
+    LOG("find process id: %d", pid);
+    */
 
     /*
     // 获取dll文件全路径

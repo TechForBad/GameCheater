@@ -15,7 +15,6 @@ struct _SET_CONTEXT_CALL_INFO
     PETHREAD pTargetEthread;
     PVOID userFunction;
     ULONG64 retVal;
-    KEVENT kEvent;
 
     Fun_PreUserCall fun_PreCallKernelRoutine;
     Fun_PostUserCall fun_PostCallKernelRoutine;
@@ -68,6 +67,8 @@ private:
 
 private:
     PSET_CONTEXT_CALL_INFO callInfo_{ NULL };
+
+    KEVENT kEvent;
 
     ULONG64 commuFunction_{ 0 };
     PUCHAR callRet_{ NULL };

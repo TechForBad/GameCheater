@@ -215,8 +215,6 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
         UFree((PVOID)callInfo->param[2].asU64);
     };
 
-    KeInitializeEvent(&callInfo->kEvent, NotificationEvent, FALSE);
-
     // 远程调用
     SetCtxCallTask setCtxCallTask(callInfo);
     ntStatus = setCtxCallTask.Call();
