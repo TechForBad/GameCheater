@@ -57,10 +57,10 @@ SetCtxCallTask::SetCtxCallTask(PSET_CONTEXT_CALL_INFO callInfo)
 
 NTSTATUS SetCtxCallTask::Call()
 {
-    PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+	PKAPC kernelModeApc = (PKAPC)KAlloc(sizeof(KAPC));
     if (NULL == kernelModeApc)
     {
-        LOG_ERROR("ExAllocatePoolWithTag failed");
+        LOG_ERROR("KAlloc failed");
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -78,7 +78,7 @@ NTSTATUS SetCtxCallTask::Call()
     if (!KeInsertQueueApc(kernelModeApc, this, 0, 2))
     {
         LOG_ERROR("KeInsertQueueApc failed");
-        ExFreePoolWithTag(kernelModeApc, MEM_TAG);
+        KFree(kernelModeApc);
         return STATUS_NOT_CAPABLE;
     }
 
@@ -102,7 +102,7 @@ VOID SetCtxCallTask::SetCtxApcCallback(
     PVOID* SystemArgument2
 )
 {
-    ExFreePoolWithTag(Apc, MEM_TAG);
+    KFree(Apc);
 
     SetCtxCallTask* thisptr = *(SetCtxCallTask**)SystemArgument1;
 

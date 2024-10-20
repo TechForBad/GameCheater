@@ -136,6 +136,30 @@ inl void MemCpy(PVOID Destination, PVOID Source, SIZE_T Count)
     __movsb((PUCHAR)Destination, (PUCHAR)Source, Count);
 }
 
+inl PVOID KAlloc(ULONG64 Size, BOOL exec = FALSE, BOOL PagedPool = FALSE)
+{
+    PVOID buffer = ExAllocatePoolWithTag(
+        PagedPool ? POOL_TYPE::PagedPool : (exec ? NonPagedPool : NonPagedPoolNx),
+        Size,
+        MEM_TAG
+    );
+    if (NULL == buffer)
+    {
+        LOG_ERROR("ExAllocatePoolWithTag failed");
+        return NULL;
+    }
+    memset(buffer, 0, Size);
+    return buffer;
+}
+
+inl void KFree(PVOID Ptr)
+{
+    if (Ptr)
+    {
+        ExFreePoolWithTag(Ptr, MEM_TAG);
+    }
+}
+
 inl PVOID UAlloc(ULONG Size, ULONG Protect = PAGE_READWRITE, BOOL load = TRUE)
 {
     PVOID AllocBase = nullptr; SIZE_T SizeUL = SizeAlign(Size);

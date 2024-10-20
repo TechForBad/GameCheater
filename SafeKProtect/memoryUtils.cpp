@@ -326,11 +326,18 @@ PVOID MemoryUtils::GetSystemInformation(SYSTEM_INFORMATION_CLASS sysInfoClass)
         return NULL;
     }
 
-    PVOID sysInfo = (PRTL_PROCESS_MODULES)ExAllocatePoolWithTag(NonPagedPool, bytes, MEM_TAG);
+    PVOID sysInfo = (PRTL_PROCESS_MODULES)KAlloc(bytes);
+    if (NULL == sysInfo)
+    {
+        LOG_ERROR("KAlloc failed");
+        return NULL;
+    }
+
     ntStatus = ZwQuerySystemInformation(sysInfoClass, sysInfo, bytes, &bytes);
     if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("ZwQuerySystemInformation failed");
+        KFree(sysInfo);
         return NULL;
     }
 
@@ -363,7 +370,7 @@ PVOID MemoryUtils::GetSystemModuleBase(LPCSTR moduleName, PULONG moduleSize)
 
     if (processModules)
     {
-        ExFreePoolWithTag(processModules, MEM_TAG);
+        KFree(processModules);
     }
 
     return moduleBase;
@@ -544,7 +551,7 @@ PVOID MemoryUtils::GetNtModuleBase(PULONG ntSize)
 
     if (processModules)
     {
-        ExFreePoolWithTag(processModules, MEM_TAG);
+        KFree(processModules);
     }
 
     if (ntSize)

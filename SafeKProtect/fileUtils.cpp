@@ -32,10 +32,10 @@ NTSTATUS FileUtils::LoadFile(PUNICODE_STRING ustrFileName, PVOID* buffer, DWORD*
     }
 
     *size = fsi.EndOfFile.LowPart;
-    *buffer = ExAllocatePoolWithTag(PagedPool, fsi.EndOfFile.LowPart, MEM_TAG);
+    *buffer = KAlloc(fsi.EndOfFile.LowPart, FALSE, TRUE);
     if (NULL == *buffer)
     {
-        LOG_ERROR("ExAllocatePool failed");
+        LOG_ERROR("KAlloc failed");
         ZwClose(hFile);
         return STATUS_UNSUCCESSFUL;
     }
@@ -50,7 +50,7 @@ NTSTATUS FileUtils::LoadFile(PUNICODE_STRING ustrFileName, PVOID* buffer, DWORD*
     if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("ZwReadFile failed");
-        ExFreePool(*buffer);
+        KFree(*buffer);
         ZwClose(hFile);
         return STATUS_UNSUCCESSFUL;
     }
@@ -59,7 +59,7 @@ NTSTATUS FileUtils::LoadFile(PUNICODE_STRING ustrFileName, PVOID* buffer, DWORD*
     if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("ZwReadFile failed");
-        ExFreePool(*buffer);
+        KFree(*buffer);
         ZwClose(hFile);
         return STATUS_UNSUCCESSFUL;
     }

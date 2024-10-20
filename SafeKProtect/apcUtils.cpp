@@ -8,7 +8,7 @@ static void NTAPI KernelKernelRoutine2(
     _Inout_ PVOID* SystemArgument2
 )
 {
-    ExFreePoolWithTag(Apc, MEM_TAG);
+    KFree(Apc);
 
     ULONG_PTR iswow64;
     if (ZwQueryInformationProcess(ZwCurrentProcess(), ProcessWow64Information, &iswow64, sizeof(iswow64), NULL) == STATUS_SUCCESS)
@@ -33,11 +33,12 @@ static void NTAPI KernelKernelRoutine(
     LOG_INFO("Create User Mode APC, shellcode addr: %p, param: %p", (PVOID)*SystemArgument1, (PVOID)*NormalContext);
 
     // kernelmode apc, always gets executed
-    ExFreePoolWithTag(Apc, MEM_TAG);
+    KFree(Apc);
 
-    PKAPC userModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+    PKAPC userModeApc = (PKAPC)KAlloc(sizeof(KAPC));
     if (NULL == userModeApc)
     {
+        LOG_ERROR("KAlloc failed");
         return;
     }
 
@@ -71,7 +72,7 @@ static VOID NTAPI KernelRundownRoutine(
     _In_ PKAPC Apc
 )
 {
-    ExFreePoolWithTag(Apc, MEM_TAG);
+    KFree(Apc);
 }
 
 static void KernelNormalRoutine(PVOID arg1, PVOID arg2, PVOID arg3)
@@ -81,10 +82,10 @@ static void KernelNormalRoutine(PVOID arg1, PVOID arg2, PVOID arg3)
 
 NTSTATUS ApcUtils::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN ULONG64 parameter)
 {
-    PKAPC kernelModeApc = (PKAPC)ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), MEM_TAG);
+    PKAPC kernelModeApc = (PKAPC)KAlloc(sizeof(KAPC));
     if (NULL == kernelModeApc)
     {
-        LOG_ERROR("ExAllocatePoolWithTag failed");
+        LOG_ERROR("KAlloc failed");
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -107,7 +108,7 @@ NTSTATUS ApcUtils::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN 
     ))
     {
         LOG_ERROR("KeInsertQueueApc failed");
-        ExFreePoolWithTag(kernelModeApc, MEM_TAG);
+        KFree(kernelModeApc);
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -162,10 +163,10 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     KeUnstackDetachProcess(&apcState);
 
     // 初始化调用信息
-    PSET_CONTEXT_CALL_INFO callInfo = (PSET_CONTEXT_CALL_INFO)ExAllocatePoolWithTag(NonPagedPool, 0x1000, MEM_TAG);
+    PSET_CONTEXT_CALL_INFO callInfo = (PSET_CONTEXT_CALL_INFO)KAlloc(0x1000);
     if (NULL == callInfo)
     {
-        LOG_ERROR("ExAllocatePoolWithTag failed");
+        LOG_ERROR("KAlloc failed");
         ObDereferenceObject(pTargetEthread);
         ObDereferenceObject(pEprocess);
         return STATUS_UNSUCCESSFUL;
@@ -219,7 +220,7 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     SetCtxCallTask setCtxCallTask(callInfo);
     ntStatus = setCtxCallTask.Call();
 
-    ExFreePoolWithTag(callInfo, MEM_TAG);
+    KFree(callInfo);
     ObDereferenceObject(pTargetEthread);
     ObDereferenceObject(pEprocess);
 

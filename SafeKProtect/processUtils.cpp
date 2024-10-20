@@ -108,7 +108,7 @@ NTSTATUS ProcessUtils::FindPidByName(LPCWSTR processName, PULONG pid)
 
     if (pProcessInfo)
     {
-        ExFreePoolWithTag(pProcessInfo, MEM_TAG);
+        KFree(pProcessInfo);
     }
 
     return ntStatus;
@@ -169,7 +169,7 @@ NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pEprocess, PETHREAD* ppEthre
     if (NULL == pCurProcessInfo)
     {
         LOG_ERROR("FindProcessInformation failed");
-        ExFreePoolWithTag(pSystemProcessInfo, MEM_TAG);
+        KFree(pSystemProcessInfo);
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -280,7 +280,7 @@ NTSTATUS ProcessUtils::FindAlertableThread(PEPROCESS pEprocess, PETHREAD* pAlert
     if (NULL == info)
     {
         LOG_ERROR("FindProcessInformation failed");
-        ExFreePoolWithTag(pSystemProcessInfo, MEM_TAG);
+        KFree(pSystemProcessInfo);
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -322,7 +322,7 @@ NTSTATUS ProcessUtils::FindAlertableThread(PEPROCESS pEprocess, PETHREAD* pAlert
         break;
     }
 
-    ExFreePoolWithTag(pSystemProcessInfo, MEM_TAG);
+    KFree(pSystemProcessInfo);
     
     if (NULL == pTargetEthread)
     {
@@ -368,7 +368,7 @@ NTSTATUS ProcessUtils::GenerateShellcode(DWORD pid, LPCWSTR dllPath, InjectShell
     if (NULL == pShellcodeBuffer || 0 == shellcodeSize)
     {
         LOG_ERROR("GetShellCodeBuffer failed");
-        ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+        KFree(pFileBuffer);
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
         return STATUS_UNSUCCESSFUL;
@@ -383,7 +383,7 @@ NTSTATUS ProcessUtils::GenerateShellcode(DWORD pid, LPCWSTR dllPath, InjectShell
     if (NULL == pModuleBase || 0 == moduleSize)
     {
         LOG_ERROR("GetProcessModuleBase failed");
-        ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+        KFree(pFileBuffer);
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
         return STATUS_UNSUCCESSFUL;
@@ -402,7 +402,7 @@ NTSTATUS ProcessUtils::GenerateShellcode(DWORD pid, LPCWSTR dllPath, InjectShell
         NULL == injectParam.fun_RtlFreeUnicodeString)
     {
         LOG_ERROR("GetFunctionAddressFromExportTable failed");
-        ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+        KFree(pFileBuffer);
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
         return STATUS_UNSUCCESSFUL;
@@ -416,7 +416,7 @@ NTSTATUS ProcessUtils::GenerateShellcode(DWORD pid, LPCWSTR dllPath, InjectShell
     if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("ZwAllocateVirtualMemory failed, ntStatus: 0x%x", ntStatus);
-        ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+        KFree(pFileBuffer);
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
         return ntStatus;
@@ -435,7 +435,7 @@ NTSTATUS ProcessUtils::GenerateShellcode(DWORD pid, LPCWSTR dllPath, InjectShell
     LOG_INFO("StartAddress: 0x%llx, ShellCodeAddress: 0x%llx, ShellCodeParamAddress: 0x%llx",
              pStartAddress, pShellcodeAddress, pShellCodeParamAddress);
 
-    ExFreePoolWithTag(pFileBuffer, MEM_TAG);
+    KFree(pFileBuffer);
 
     // 调用注入shellcode回调
     ntStatus = callback(pEprocess, (Fun_Shellcode)pShellcodeAddress, pShellCodeParamAddress, totalSize);
