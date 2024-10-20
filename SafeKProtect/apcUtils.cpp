@@ -140,10 +140,19 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
 
     // 获取目标函数地址
     // PVOID fun_MsgBoxW = MemoryUtils::GetModuleExportAddress("dbghelp.dll", "MiniDumpWriteDump");
-    PVOID fun_MsgBoxW = MemoryUtils::GetModuleExportAddress("user32.dll", "MessageBoxW");
-    if (NULL == fun_MsgBoxW)
+    PVOID hUser32 = GetModuleHandle("user32.dll");
+    if (NULL == hUser32)
     {
-        LOG_ERROR("GetModuleExportAddress failed");
+        LOG_ERROR("GetModuleHandle failed");
+        ObDereferenceObject(pTargetEthread);
+        KeUnstackDetachProcess(&apcState);
+        ObDereferenceObject(pEprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
+    PVOID fun_MessageBoxW = GetProcAddress(hUser32, "MessageBoxW");
+    if (NULL == fun_MessageBoxW)
+    {
+        LOG_ERROR("GetProcAddress failed");
         ObDereferenceObject(pTargetEthread);
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(pEprocess);
@@ -184,7 +193,7 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     );
     */
     callInfo->pTargetEthread = pTargetEthread;
-    callInfo->userFunction = fun_MsgBoxW;
+    callInfo->userFunction = fun_MessageBoxW;
     callInfo->paramCnt = 4;
     callInfo->param[0].asU64 = 0;       // MB_OK
     callInfo->param[1].asU64 = 0;

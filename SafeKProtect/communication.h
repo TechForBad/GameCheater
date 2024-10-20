@@ -3,7 +3,7 @@
 namespace COMM
 {
 
-//模块名长度最大值
+// 模块名长度最大值
 #define MAX_MODULE_NAME 100
 
 constexpr unsigned long MIN_CODE = 0xFFFF;

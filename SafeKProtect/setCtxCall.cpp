@@ -100,22 +100,19 @@ VOID SetCtxCallTask::SetCtxApcCallback(
     PVOID* SystemArgument2
 )
 {
-	__dbgdb();
     ExFreePoolWithTag(Apc, MEM_TAG);
 
-    PETHREAD CurrentThread = KeGetCurrentThread();
-    if (PsGetTrapFrame(CurrentThread) != NULL)
+    PETHREAD pCurEthread = KeGetCurrentThread();
+    if (PsGetTrapFrame(pCurEthread) != NULL)
     {
 		LOG_ERROR("PsGetTrapFrame failed");
-		__dbgdb();
-        // return;
+        return;
     }
 
-	PKTRAP_FRAME baseTrapFrame = PspGetBaseTrapFrame(CurrentThread);
+	PKTRAP_FRAME baseTrapFrame = PspGetBaseTrapFrame(pCurEthread);
     if (NULL == baseTrapFrame)
     {
 		LOG_ERROR("PspGetBaseTrapFrame failed");
-		__dbgdb();
         return;
     }
 
@@ -177,51 +174,48 @@ VOID SetCtxCallTask::SetCtxApcCallback(
 
 	SetCtxCallTask* thisptr = *(SetCtxCallTask**)SystemArgument1;
 
-    if (!thisptr->bInitCommu_)
+    PVOID hNtdll = GetModuleHandle("ntdll.dll");
+    PVOID hWin32u = GetModuleHandle("win32u.dll");
+	if (NULL == hNtdll || NULL == hWin32u)
+	{
+        LOG_ERROR("GetModuleHandle failed");
+        return;
+	}
+
+    // u poi CallRet
+    // 00007ffe`88b4a369 xor  edx, edx
+    // 00007ffe`88b4a36b lea  rcx, [rsp + 20h]
+    // 00007ffe`88b4a370 call ntdll!NtContinue
+
+    thisptr->callRet_ = MemoryUtils::FindPatternFromSection(hNtdll, ".text", "E8 ? ? ? ? 33 D2 48 8D 4C 24 20 E8");
+    if (NULL == thisptr->callRet_)
     {
-        PVOID ntdll = GetModuleHandle("ntdll.dll");
-        PVOID win32u = GetModuleHandle("win32u.dll");
+        LOG_ERROR("FindPatternFromSection failed");
+        return;
+    }
 
-        // u poi CallRet
-        // 00007ffe`88b4a369 xor  edx, edx
-        // 00007ffe`88b4a36b lea  rcx, [rsp + 20h]
-        // 00007ffe`88b4a370 call ntdll!NtContinue
+    if (RVA(thisptr->callRet_ + 12, 5) != (ULONG64)GetProcAddress(hNtdll, "NtContinue"))
+    {
+        LOG_ERROR("GetProcAddress failed");
+        return;
+    }
 
-        thisptr->callRet_ = MemoryUtils::FindPatternFromSection(ntdll, ".text", "E8 ? ? ? ? 33 D2 48 8D 4C 24 20 E8");
-		if (NULL == thisptr->callRet_)
-		{
-			LOG_ERROR("FindPatternFromSection failed");
-			__db();
-			return;
-		}
+    thisptr->callRet_ += 5;
 
-		if (RVA(thisptr->callRet_ + 12, 5) != (ULONG64)GetProcAddress(ntdll, "NtContinue"))
-		{
-			LOG_ERROR("GetProcAddress failed");
-			__db();
-			return;
-		}
+    ULONG64 instr = (ULONG64)GetProcAddress(MemoryUtils::GetNtModuleBase(NULL), "KeQueryAuxiliaryCounterFrequency") + 4;
+    LONG bbbb = *(LONG*)(instr + 3);
 
-        thisptr->callRet_ += 5;
+    ULONG64 rva = instr + 7 + bbbb;
 
-		ULONG64 instr = (ULONG64)GetProcAddress(MemoryUtils::GetNtModuleBase(NULL), "KeQueryAuxiliaryCounterFrequency") + 4;
-        LONG bbbb = *(LONG*)(instr + 3);
+    g_OrigNtQuery = *(ULONG64*)rva;
+    *(ULONG64*)rva = (ULONG64)HkCommunicate;
 
-		ULONG64 rva = instr + 7 + bbbb;
-
-        g_OrigNtQuery = *(ULONG64*)rva;
-        *(ULONG64*)rva = (ULONG64)HkCommunicate;
-
-		// your win32k io function or data ptr function;
-        thisptr->commuFunction_ = (ULONG64)GetProcAddress(ntdll, "NtQueryAuxiliaryCounterFrequency");
-        if (NULL == thisptr->commuFunction_)
-        {
-            LOG_ERROR("GetProcAddress failed");
-            __db();
-            return;
-        }
-
-        thisptr->bInitCommu_ = true;
+    // your win32k io function or data ptr function;
+    thisptr->commuFunction_ = (ULONG64)GetProcAddress(hNtdll, "NtQueryAuxiliaryCounterFrequency");
+    if (NULL == thisptr->commuFunction_)
+    {
+        LOG_ERROR("GetProcAddress failed");
+        return;
     }
 
     CONTEXT preCallCtx = origContext;
@@ -716,8 +710,6 @@ Return Value:
 
 NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
 {
-	__dbgdb();
-
     do
     {
 		KTRAP_FRAME* trapFrame = PsGetTrapFrame();
@@ -726,7 +718,6 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
             (*(ULONG64*)(trapFrame->Rsp + 8) != PIPI_CALL_IDENTIFIYER))
         {
 			LOG_ERROR("PsGetTrapFrame failed");
-			__dbgdb();
             break;
         }
 
@@ -734,16 +725,11 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
         if (!IsValid((ULONG64)thisptr))
         {
             LOG_ERROR("IsValid failed");
-			__dbgdb();
             break;
         }
 
         // tf->Rsp -= 8;
-        if (!thisptr->bUserCallInit_)
-        {
-            thisptr->usermodeCallback_.Init();
-            thisptr->bUserCallInit_ = true;
-        }
+		thisptr->usermodeCallback_.Init();
 
         PSET_CONTEXT_CALL_INFO callInfo = thisptr->callInfo_;
 
@@ -768,7 +754,7 @@ NTSTATUS SetCtxCallTask::HkCommunicate(ULONG64 a1)
         KeSetEvent(&callInfo->kEvent, IO_KEYBOARD_INCREMENT, FALSE);
 
         return STATUS_UNSUCCESSFUL;
-    } while (false);
+    } while (FALSE);
 
     return ((NTSTATUS(*)(ULONG64 a1))g_OrigNtQuery)(a1);
 }

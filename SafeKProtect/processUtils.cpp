@@ -154,7 +154,7 @@ NTSTATUS ProcessUtils::ResumeTargetProcess(DWORD pid)
     return STATUS_UNSUCCESSFUL;
 }
 
-NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pEprocess, PETHREAD* ppThread)
+NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pEprocess, PETHREAD* ppEthread)
 {
     PSYSTEM_PROCESS_INFO pSystemProcessInfo =
         (PSYSTEM_PROCESS_INFO)MemoryUtils::GetSystemInformation(SystemProcessesAndThreadsInformation);
@@ -191,11 +191,13 @@ NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pEprocess, PETHREAD* ppThrea
             continue;
         }
 
+        /*
         if (SkipThread(pEthread))
         {
             ObDereferenceObject(pEthread);
             continue;
         }
+        */
 
         pTargetEthread = pEthread;
         break;
@@ -209,7 +211,7 @@ NTSTATUS ProcessUtils::FindProcessEthread(PEPROCESS pEprocess, PETHREAD* ppThrea
         return STATUS_NOT_FOUND;
     }
 
-    *ppThread = pTargetEthread;
+    *ppEthread = pTargetEthread;
 
     return STATUS_SUCCESS;
 }

@@ -13,7 +13,7 @@ bool DriverComm::Init()
     if (!TestDriverComm())
     {
         // 加载驱动
-        if (!LoadDriver(false))
+        if (!LoadDriver(true))
         {
             LOG("LoadDriver failed");
             return false;

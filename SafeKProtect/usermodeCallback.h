@@ -2,9 +2,130 @@
 
 class UsermodeCallback
 {
+public:
+    UsermodeCallback() = default;
+    ~UsermodeCallback();
+
+    void Init();
+
+    NTSTATUS KeUserModeCall(
+        IN ULONG ApiNumber,
+        IN PVOID   InputBuffer,
+        IN ULONG InputLength,
+        OUT PVOID* OutputBuffer,
+        IN PULONG OutputLength
+    );
+
+    template<typename Ret = void*, typename A1 = void*, typename A2 = void*, typename A3 = void*, typename A4 = void*, typename A5 = void*, typename A6 = void*>
+    ULONG64 Call(PVOID Ptr, A1 a1 = 0, A2 a2 = 0, A3 a3 = 0, A4 a4 = 0, A5 a5 = 0, A6 a6 = 0)
+    {
+        *(volatile ULONG64*)Ptr;
+
+        contextUser_->Rcx = (ULONG64)a1;
+        contextUser_->Rdx = (ULONG64)a2;
+        contextUser_->R8 = (ULONG64)a3;
+        contextUser_->R9 = (ULONG64)a4;
+
+        auto TrapFrame = PsGetTrapFrame(KeGetCurrentThread());
+        if (!TrapFrame)
+        {
+            // Stack walk and find trapframe, also set kthread.trapframe since KeUserCall use it. 
+            // __dbgdb();
+            // TrapFrame = StackWalkFindTrapFrame();
+            // if (!TrapFrame)
+            __dbgdb();
+            // PsSetTrapFrame(KeGetCurrentThread(), TrapFrame);
+            return 0;
+        }
+
+        contextUser_->Rsp = TrapFrame->Rsp - 0xF0;
+
+        contextUser_->Rip = (ULONG64)Ptr;
+        contextUser_->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+        *(ULONG64*)(contextUser_->Rsp + 0x30) = (ULONG64)a6;
+
+        KEUSER_CALLBACK UserData;
+        UserData.Arg1 = (ULONG64)contextUser_;
+        UserData.Arg5 = (ULONG64)a5;
+        UserData.Arg2 = 0;
+        UserData.Func = ntContinue_;
+
+        KeUserModeCallback(2, &UserData, sizeof(UserData), (PVOID*)&UserData, (ULONG*)&UserData.Arg2);
+
+        ULONG64 ret = 0;
+        if (IsValid(UserData.Arg1))
+        {
+            ret = *(ULONG64*)UserData.Arg1;
+        }
+
+        return ret;
+        //USER32!_fnDWORD+0x33:
+        //xor     r8d,r8d
+        //lea     rcx,[rsp+30h]
+        //mov     qword ptr [rsp+30h],rax
+        //lea     edx,[r8+18h]
+        //call    qword ptr [USER32!_imp_NtCallbackReturn (00007ffe`87598790)]
+        //add     rsp,58h
+        //ret
+
+    }
+
+    template<typename Ret = void*, typename A1 = void*, typename A2 = void*, typename A3 = void*, typename A4 = void*, typename A5 = void*, typename A6 = void*>
+    ULONG64 Call2(PVOID Ptr, A1 a1 = 0, A2 a2 = 0, A3 a3 = 0, A4 a4 = 0, A5 a5 = 0, A6 a6 = 0)
+    {
+        *(volatile ULONG64*)Ptr;
+
+        contextUser_->Rcx = (ULONG64)a1;
+        contextUser_->Rdx = (ULONG64)a2;
+        contextUser_->R8 = (ULONG64)a3;
+        contextUser_->R9 = (ULONG64)a4;
+
+        auto TrapFrame = PsGetTrapFrame(KeGetCurrentThread());
+        if (!TrapFrame)
+        {
+            // Stack walk and find trapframe, also set kthread.trapframe since KeUserCall use it. 
+            //__dbgdb();
+            //TrapFrame = StackWalkFindTrapFrame();
+            //if (!TrapFrame)
+            __db();
+            //PsSetTrapFrame(KeGetCurrentThread(), TrapFrame);
+            return 0;
+        }
+
+        contextUser_->Rsp = TrapFrame->Rsp - 0xF8;
+
+        contextUser_->Rip = (ULONG64)Ptr;
+        contextUser_->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+        *(ULONG64*)(contextUser_->Rsp + 0x30) = (ULONG64)a6;
+
+        KEUSER_CALLBACK UserData;
+        UserData.Arg1 = (ULONG64)contextUser_;
+        UserData.Arg5 = (ULONG64)a5;
+        UserData.Arg2 = 0;
+        UserData.Func = ntContinue_;
+
+        KeUserModeCall(2, &UserData, sizeof(UserData), (PVOID*)&UserData, (ULONG*)&UserData.Arg2);
+
+        ULONG64 ret = 0;
+        if (IsValid(UserData.Arg1))
+        {
+            ret = *(ULONG64*)UserData.Arg1;
+        }
+
+        return ret;
+        //USER32!_fnDWORD+0x33:
+        //xor     r8d,r8d
+        //lea     rcx,[rsp+30h]
+        //mov     qword ptr [rsp+30h],rax
+        //lea     edx,[r8+18h]
+        //call    qword ptr [USER32!_imp_NtCallbackReturn (00007ffe`87598790)]
+        //add     rsp,58h
+        //ret
+    }
+
 private:
-    CONTEXT* ContextUser;
-    PVOID NtContinue;
+    CONTEXT* contextUser_{ NULL };
+    PVOID ntContinue_{ NULL };
 
     typedef struct _KSTACK_CONTROL
     {
@@ -72,116 +193,4 @@ private:
 
     // PVOID KiCallUserMode;
     // PVOID PspGetContextThreadInternal;
-
-public:
-    void Init();
-
-    NTSTATUS KeUserModeCall(
-        IN ULONG ApiNumber,
-        IN PVOID   InputBuffer,
-        IN ULONG InputLength,
-        OUT PVOID* OutputBuffer,
-        IN PULONG OutputLength
-    );
-
-    template<typename Ret = void*, typename A1 = void*, typename A2 = void*, typename A3 = void*, typename A4 = void*, typename A5 = void*, typename A6 = void*>
-    ULONG64 Call(PVOID Ptr, A1 a1 = 0, A2 a2 = 0, A3 a3 = 0, A4 a4 = 0, A5 a5 = 0, A6 a6 = 0)
-    {
-        *(volatile ULONG64*)Ptr;
-
-        ContextUser->Rcx = (ULONG64)a1;
-        ContextUser->Rdx = (ULONG64)a2;
-        ContextUser->R8 = (ULONG64)a3;
-        ContextUser->R9 = (ULONG64)a4;
-
-        auto TrapFrame = PsGetTrapFrame(KeGetCurrentThread());
-        if (!TrapFrame)
-        {
-            // Stack walk and find trapframe, also set kthread.trapframe since KeUserCall use it. 
-            //__dbgdb();
-            //TrapFrame = StackWalkFindTrapFrame();
-            //if (!TrapFrame)
-            DbgBreakPoint();
-            //PsSetTrapFrame(KeGetCurrentThread(), TrapFrame);
-        }
-
-        ContextUser->Rsp = TrapFrame->Rsp - 0xF0;
-
-        ContextUser->Rip = (ULONG64)Ptr;
-        ContextUser->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
-        *(ULONG64*)(ContextUser->Rsp + 0x30) = (ULONG64)a6;
-
-        KEUSER_CALLBACK UserData;
-        UserData.Arg1 = (ULONG64)ContextUser;
-        UserData.Arg5 = (ULONG64)a5;
-        UserData.Arg2 = 0;
-        UserData.Func = NtContinue;
-
-        KeUserModeCallback(2, &UserData, sizeof(UserData), (PVOID*)&UserData, (ULONG*)&UserData.Arg2);
-
-        ULONG64 ret = 0;
-        if (IsValid(UserData.Arg1))
-            ret = *(ULONG64*)UserData.Arg1;
-
-        return ret;
-        //USER32!_fnDWORD+0x33:
-        //xor     r8d,r8d
-        //lea     rcx,[rsp+30h]
-        //mov     qword ptr [rsp+30h],rax
-        //lea     edx,[r8+18h]
-        //call    qword ptr [USER32!_imp_NtCallbackReturn (00007ffe`87598790)]
-        //add     rsp,58h
-        //ret
-
-    }
-
-    template<typename Ret = void*, typename A1 = void*, typename A2 = void*, typename A3 = void*, typename A4 = void*, typename A5 = void*, typename A6 = void*>
-    ULONG64 Call2(PVOID Ptr, A1 a1 = 0, A2 a2 = 0, A3 a3 = 0, A4 a4 = 0, A5 a5 = 0, A6 a6 = 0)
-    {
-        *(volatile ULONG64*)Ptr;
-
-        ContextUser->Rcx = (ULONG64)a1;
-        ContextUser->Rdx = (ULONG64)a2;
-        ContextUser->R8 = (ULONG64)a3;
-        ContextUser->R9 = (ULONG64)a4;
-
-        auto TrapFrame = PsGetTrapFrame(KeGetCurrentThread());
-        if (!TrapFrame)
-        {
-            // Stack walk and find trapframe, also set kthread.trapframe since KeUserCall use it. 
-            //__dbgdb();
-            //TrapFrame = StackWalkFindTrapFrame();
-            //if (!TrapFrame)
-            __db();
-            //PsSetTrapFrame(KeGetCurrentThread(), TrapFrame);
-        }
-
-        ContextUser->Rsp = TrapFrame->Rsp - 0xF8;
-
-        ContextUser->Rip = (ULONG64)Ptr;
-        ContextUser->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
-        *(ULONG64*)(ContextUser->Rsp + 0x30) = (ULONG64)a6;
-
-        KEUSER_CALLBACK UserData;
-        UserData.Arg1 = (ULONG64)ContextUser;
-        UserData.Arg5 = (ULONG64)a5;
-        UserData.Arg2 = 0;
-        UserData.Func = NtContinue;
-
-        KeUserModeCall(2, &UserData, sizeof(UserData), (PVOID*)&UserData, (ULONG*)&UserData.Arg2);
-
-        ULONG64 ret = 0;
-        if (IsValid(UserData.Arg1))
-            ret = *(ULONG64*)UserData.Arg1;
-
-        return ret;
-        //USER32!_fnDWORD+0x33:
-        //xor     r8d,r8d
-        //lea     rcx,[rsp+30h]
-        //mov     qword ptr [rsp+30h],rax
-        //lea     edx,[r8+18h]
-        //call    qword ptr [USER32!_imp_NtCallbackReturn (00007ffe`87598790)]
-        //add     rsp,58h
-        //ret
-    }
 };
