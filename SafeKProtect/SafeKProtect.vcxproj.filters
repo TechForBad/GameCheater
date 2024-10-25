@@ -75,6 +75,9 @@
     <Filter Include="ApcUtils">
       <UniqueIdentifier>{1056f3e4-6cca-48b0-8c78-2401ec16d379}</UniqueIdentifier>
     </Filter>
+    <Filter Include="VmUtils">
+      <UniqueIdentifier>{cfe1b604-e38b-49f6-b9b0-51e40341521c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DriverEntry.cpp">
