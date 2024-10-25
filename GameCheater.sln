@@ -23,6 +23,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Common", "Common\Common.vcx
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SafeKProtect", "SafeKProtect\SafeKProtect.vcxproj", "{721DAB96-A03B-40BB-A4DD-B852138D8B4B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{FE197816-EF84-4E8D-B29D-E0A6BA2B144B} = {FE197816-EF84-4E8D-B29D-E0A6BA2B144B}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MyDll", "MyDll\MyDll.vcxproj", "{34F1E025-5F4E-4DB2-AF5A-011C1C0002DA}"
 	ProjectSection(ProjectDependencies) = postProject
