@@ -3,6 +3,100 @@
 
 #include "../Common/common.h"
 
+static DriverComm* g_pDriverComm = NULL;
+
+bool test_createFullDumpByR3(DWORD pid)
+{
+    // 获取进程句柄
+    HANDLE hProcHandle = NULL;
+    if (!g_pDriverComm->GetHandleForProcessID(pid, &hProcHandle))
+    {
+        LOG("GetHandleForProcessID failed");
+        return false;
+    }
+
+    LOG("pid: %d, handle: %d", pid, hProcHandle);
+
+    // 创建full dump
+    LPCSTR dumpeFilePath = "D:\\analyze\\PUBG\\TslGame.dmp";
+    if (!tool::CreateFullDump(hProcHandle, pid, dumpeFilePath))
+    {
+        LOG("CreateFullDump failed");
+        return false;
+    }
+
+    if (hProcHandle)
+    {
+        CloseHandle(hProcHandle);
+    }
+
+    return true;
+}
+
+bool test_createFullDumpByR0(DWORD pid)
+{
+    // 获取dll文件全路径
+    wchar_t dumpPath[MAX_PATH] = { 0 };
+    if (!tool::GetCurrentModuleDirPath(dumpPath))
+    {
+        LOG("GetCurrentModuleDirPath failed");
+        return false;
+    }
+    wcscat(dumpPath, L"test.dmp");
+
+    // 生成dump
+    if (!g_pDriverComm->ProcessCallMiniDumpWriteDump(pid, dumpPath))
+    {
+        LOG("ProcessCallMiniDumpWriteDump failed");
+        return false;
+    }
+
+    return true;
+}
+
+bool test_injectDllByR3(DWORD pid)
+{
+    // 获取dll文件全路径
+    wchar_t dllFilePath[MAX_PATH] = { 0 };
+    if (!tool::GetCurrentModuleDirPath(dllFilePath))
+    {
+        LOG("GetCurrentModuleDirPath failed");
+        return false;
+    }
+    wcscat(dllFilePath, MY_DLL_NAME);
+
+    // 注入dll
+    if (!InjectDll::RemoteInjectDll(pid, dllFilePath))
+    {
+        LOG("RemoteInjectDll failed");
+        return false;
+    }
+
+    return true;
+}
+
+bool test_injectDllByR0(DWORD pid)
+{
+    // 获取dll文件全路径
+    wchar_t dllFilePath[MAX_PATH] = { 0 };
+    if (!tool::GetCurrentModuleDirPath(dllFilePath))
+    {
+        LOG("GetCurrentModuleDirPath failed");
+        return false;
+    }
+    wcscat(dllFilePath, MY_DLL_NAME);
+
+    // 注入dll
+    std::wstring dllFullPath = tool::Format(L"\\??\\%ws", dllFilePath);
+    if (!g_pDriverComm->InjectDllWithNoModuleByEventHook(pid, dllFullPath.c_str()))
+    {
+        LOG("InjectDllWithNoModuleByEventHook failed");
+        return false;
+    }
+
+    return true;
+}
+
 int main()
 {
     // 输出重定向到父窗口控制台，方便观察打印日志
@@ -21,34 +115,18 @@ int main()
     }
 
     // 初始化驱动通信
-    DriverComm* pDriverComm = DriverComm::GetInstance();
-    if (!pDriverComm->Init())
+    g_pDriverComm = DriverComm::GetInstance();
+    if (!g_pDriverComm->Init())
     {
         LOG("Init failed");
         return -1;
     }
 
-    // 获取dwm进程号
+    // 输入进程号
     DWORD pid = 0;
     printf("Input Process Id: ");
     std::cin >> pid;
     printf("Output: %d\n", pid);
-
-    // 获取dll文件全路径
-    wchar_t dumpPath[MAX_PATH] = { 0 };
-    if (!tool::GetCurrentModuleDirPath(dumpPath))
-    {
-        LOG("GetCurrentModuleDirPath failed");
-        return -1;
-    }
-    wcscat(dumpPath, L"test.dmp");
-
-    // 生成dump
-    if (!pDriverComm->ProcessCreateFullDump(pid, dumpPath))
-    {
-        LOG("ProcessCreateFullDump failed");
-        return -1;
-    }
 
     /*
     DWORD pid = 0;
@@ -58,57 +136,6 @@ int main()
         return -1;
     }
     LOG("find process id: %d", pid);
-    */
-
-    /*
-    // 获取dll文件全路径
-    wchar_t dllFilePath[MAX_PATH] = { 0 };
-    if (!tool::GetCurrentModuleDirPath(dllFilePath))
-    {
-        LOG("GetCurrentModuleDirPath failed");
-        return -1;
-    }
-    wcscat(dllFilePath, MY_DLL_NAME);
-
-    // 注入dll
-    std::wstring dllFullPath = tool::Format(L"\\??\\%ws", dllFilePath);
-    if (!pDriverComm->InjectDllWithNoModuleByEventHook(pid, dllFullPath.c_str()))
-    {
-        LOG("InjectDllWithNoModuleByEventHook failed");
-        return -1;
-    }
-    */
-
-    /*
-    // 远程注入dll
-    if (!InjectDll::RemoteInjectDll(pid, dllFilePath))
-    {
-        LOG("RemoteInjectDll failed");
-        return -1;
-    }
-
-    // 获取进程句柄
-    HANDLE hProcHandle = NULL;
-    if (!pDriverComm->GetHandleForProcessID(pid, &hProcHandle))
-    {
-        LOG("GetHandleForProcessID failed");
-        return -1;
-    }
-
-    LOG("pid: %d, handle: %d", pid, hProcHandle);
-
-    // 创建full dump
-    LPCSTR dumpeFilePath = "D:\\analyze\\PUBG\\TslGame.dmp";
-    if (!tool::CreateFullDump(hProcHandle, pid, dumpeFilePath))
-    {
-        LOG("CreateFullDump failed");
-        return -1;
-    }
-
-    if (hProcHandle)
-    {
-        CloseHandle(hProcHandle);
-    }
     */
 
     return 0;

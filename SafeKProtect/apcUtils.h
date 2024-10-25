@@ -7,5 +7,5 @@ class ApcUtils
 public:
     static NTSTATUS CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN ULONG64 parameter);
 
-    static NTSTATUS RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath);
+    static NTSTATUS RemoteCallMessageBoxBySetCtx(DWORD pid);
 };

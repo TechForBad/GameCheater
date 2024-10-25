@@ -171,7 +171,7 @@ bool DriverComm::TestDriverComm()
     return true;
 }
 
-bool DriverComm::ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst)
+bool DriverComm::ReadProcessMemoryByMdl(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst)
 {
     if (!is_init_)
     {
@@ -180,7 +180,7 @@ bool DriverComm::ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG rea
     }
 
     ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
-    cmsg_.oper = COMM::Operation::Oper_ProcessMemoryRead;
+    cmsg_.oper = COMM::Operation::Oper_ProcessMemoryReadByMdl;
     cmsg_.needOutput = false;
     cmsg_.input_MemoryRead.pid = pid;
     cmsg_.input_MemoryRead.pUserSrc = pUserSrc;
@@ -198,7 +198,7 @@ bool DriverComm::ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG rea
     return true;
 }
 
-bool DriverComm::WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst)
+bool DriverComm::WriteProcessMemoryByMdl(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst)
 {
     if (!is_init_)
     {
@@ -207,7 +207,61 @@ bool DriverComm::WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWO
     }
 
     ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
-    cmsg_.oper = COMM::Operation::Oper_ProcessMemoryWrite;
+    cmsg_.oper = COMM::Operation::Oper_ProcessMemoryWriteByMdl;
+    cmsg_.needOutput = false;
+    cmsg_.input_MemoryWrite.pUserSrc = pUserSrc;
+    cmsg_.input_MemoryWrite.writeLen = writeLen;
+    cmsg_.input_MemoryWrite.pid = pid;
+    cmsg_.input_MemoryWrite.pUserDst = pUserDst;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::ReadProcessMemoryByPhysical(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_ProcessMemoryReadByPhysical;
+    cmsg_.needOutput = false;
+    cmsg_.input_MemoryRead.pid = pid;
+    cmsg_.input_MemoryRead.pUserSrc = pUserSrc;
+    cmsg_.input_MemoryRead.readLen = readLen;
+    cmsg_.input_MemoryRead.pUserDst = pUserDst;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::WriteProcessMemoryByPhysical(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst)
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_ProcessMemoryWriteByPhysical;
     cmsg_.needOutput = false;
     cmsg_.input_MemoryWrite.pUserSrc = pUserSrc;
     cmsg_.input_MemoryWrite.writeLen = writeLen;
@@ -590,7 +644,7 @@ bool DriverComm::InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWSTR dllPa
     return true;
 }
 
-bool DriverComm::ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath)
+bool DriverComm::ProcessCallMiniDumpWriteDump(IN DWORD pid, IN LPCWSTR dumpPath)
 {
     if (!is_init_)
     {
@@ -599,12 +653,12 @@ bool DriverComm::ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath)
     }
 
     ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
-    cmsg_.oper = COMM::Operation::Oper_ProcessCreateFullDump;
+    cmsg_.oper = COMM::Operation::Oper_ProcessCallMiniDumpWriteDump;
     cmsg_.needOutput = false;
-    cmsg_.input_ProcessCreateFullDump.pid = pid;
+    cmsg_.input_ProcessCallMiniDumpWriteDump.pid = pid;
     wcscpy_s(
-        cmsg_.input_ProcessCreateFullDump.dumpPath,
-        sizeof(cmsg_.input_ProcessCreateFullDump.dumpPath) / sizeof(WCHAR),
+        cmsg_.input_ProcessCallMiniDumpWriteDump.dumpPath,
+        sizeof(cmsg_.input_ProcessCallMiniDumpWriteDump.dumpPath) / sizeof(WCHAR),
         dumpPath
     );
 

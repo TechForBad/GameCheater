@@ -96,6 +96,7 @@
       <TreatWarningAsError>false</TreatWarningAsError>
       <ControlFlowGuard>false</ControlFlowGuard>
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions);_DEBUG</PreprocessorDefinitions>
+      <StructMemberAlignment>Default</StructMemberAlignment>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -109,6 +110,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <TreatWarningAsError>false</TreatWarningAsError>
       <ControlFlowGuard>false</ControlFlowGuard>
+      <StructMemberAlignment>Default</StructMemberAlignment>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -119,6 +121,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
       <TreatWarningAsError>false</TreatWarningAsError>
+      <StructMemberAlignment>Default</StructMemberAlignment>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -130,6 +133,7 @@
       <ControlFlowGuard>false</ControlFlowGuard>
       <TreatWarningAsError>false</TreatWarningAsError>
       <PreprocessorDefinitions>_ARM64_;ARM64;_USE_DECLSPECS_FOR_SAL=1;STD_CALL;%(PreprocessorDefinitions);_DEBUG</PreprocessorDefinitions>
+      <StructMemberAlignment>Default</StructMemberAlignment>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

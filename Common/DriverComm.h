@@ -15,11 +15,17 @@ public:
     // 初始化驱动通信
     bool Init();
 
-    // 读进程内存
-    bool ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);
+    // 通过建立MDL映射读进程内存
+    bool ReadProcessMemoryByMdl(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);
 
-    // 写进程内存
-    bool WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst);
+    // 通过建立MDL映射写进程内存
+    bool WriteProcessMemoryByMdl(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst);
+
+    // 通过读物理内存读进程内存
+    bool ReadProcessMemoryByPhysical(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);
+
+    // 通过写物理内存写进程内存
+    bool WriteProcessMemoryByPhysical(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst);
 
     // 获取进程模块基地址
     bool GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleName, OUT PVOID* pModuleBase, OUT PULONG moduleSize);
@@ -63,8 +69,8 @@ public:
     // 通过EventHook无模块注入dll
     bool InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWSTR dllPath);
 
-    // 为指定进程创建full dump
-    bool ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath);
+    // 为指定进程调用MiniDumpWriteDump创建full dump
+    bool ProcessCallMiniDumpWriteDump(IN DWORD pid, IN LPCWSTR dumpPath);
 
 private:
     DriverComm() = default;

@@ -39,5 +39,8 @@
     <ClInclude Include="public_def.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="log.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

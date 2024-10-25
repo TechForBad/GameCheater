@@ -13,6 +13,7 @@
 #pragma comment(lib, "Dbghelp.lib")
 
 #include "public_def.h"
+#include "log.h"
 #include "../SafeKProtect/communication.h"
 #include "DriverComm.h"
 #include "InjectDll.h"

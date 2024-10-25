@@ -8,11 +8,17 @@ public:
     static NTSTATUS DispatchOper(IN OUT COMM::PCMSG pMsg);
 
 private:
-    // 读进程内存
-    static NTSTATUS ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);
+    // 通过建立MDL映射读进程内存
+    static NTSTATUS ReadProcessMemoryByMdl(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);
 
-    // 写进程内存
-    static NTSTATUS WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst);
+    // 通过建立MDL映射写进程内存
+    static NTSTATUS WriteProcessMemoryByMdl(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst);
+
+    // 通过读物理内存读进程内存
+    static NTSTATUS ReadProcessMemoryByPhysical(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);
+
+    // 通过写物理内存写进程内存
+    static NTSTATUS WriteProcessMemoryByPhysical(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst);
 
     // 获取进程模块基地址
     static NTSTATUS GetProcessModuleBase(IN DWORD pid, IN LPCWSTR moduleName, OUT PVOID* pModuleBase, OUT PULONG moduleSize);
@@ -56,9 +62,9 @@ private:
     // 通过EventHook无模块注入dll
     static NTSTATUS InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWSTR dllPath);
 
-    // 为指定进程创建full dump
-    static NTSTATUS ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath);
+    // 为指定进程调用MessageBox弹框
+    static NTSTATUS ProcessCallMessageBox(IN DWORD pid);
 
-private:
-    static NTSTATUS CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN ULONG64 parameter);
+    // 为指定进程调用MiniDumpWriteDump创建full dump
+    static NTSTATUS ProcessCallMiniDumpWriteDump(IN DWORD pid, IN LPCWSTR dumpPath);
 };

@@ -20,10 +20,14 @@ constexpr unsigned long MSG_PART_4 = MSG_PART_PREFIX | 0x40000;
 
 enum Operation : unsigned long
 {
-    // 读进程内存
-    Oper_ProcessMemoryRead,
-    // 写进程内存
-    Oper_ProcessMemoryWrite,
+    // 通过建立MDL映射读进程内存
+    Oper_ProcessMemoryReadByMdl,
+    // 通过建立MDL映射写进程内存
+    Oper_ProcessMemoryWriteByMdl,
+    // 通过读物理内存读进程内存
+    Oper_ProcessMemoryReadByPhysical,
+    // 通过写物理内存写进程内存
+    Oper_ProcessMemoryWriteByPhysical,
     // 获取进程模块基地址
     Oper_ProcessModuleBase,
     // 创建APC
@@ -55,7 +59,7 @@ enum Operation : unsigned long
     Oper_InjectDllWithNoModuleByEventHook,
 
     // 为指定进程创建full dump
-    Oper_ProcessCreateFullDump,
+    Oper_ProcessCallMiniDumpWriteDump,
 };
 
 #pragma pack(1)
@@ -209,12 +213,12 @@ typedef struct _CMSG
             WCHAR dllPath[MAX_PATH];
         } input_InjectDllWithNoModuleByEventHook;
 
-        // 为指定进程创建full dump
-        struct Input_ProcessCreateFullDump
+        // 为指定进程调用MiniDumpWriteDump创建full dump
+        struct Input_ProcessCallMiniDumpWriteDump
         {
             DWORD pid;
             WCHAR dumpPath[MAX_PATH];
-        } input_ProcessCreateFullDump;
+        } input_ProcessCallMiniDumpWriteDump;
     };
 } CMSG, * PCMSG;
 #pragma pack()

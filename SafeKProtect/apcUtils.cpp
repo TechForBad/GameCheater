@@ -115,7 +115,7 @@ NTSTATUS ApcUtils::CreateRemoteAPC(IN PETHREAD pEthread, IN PVOID addrToExe, IN 
     return STATUS_SUCCESS;
 }
 
-NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
+NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid)
 {
     PEPROCESS pEprocess = NULL;
     NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
@@ -140,7 +140,6 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
     }
 
     // 获取目标函数地址
-    // PVOID fun_MsgBoxW = MemoryUtils::GetModuleExportAddress("dbghelp.dll", "MiniDumpWriteDump");
     PVOID hUser32 = GetModuleHandle("user32.dll");
     if (NULL == hUser32)
     {
@@ -172,27 +171,6 @@ NTSTATUS ApcUtils::RemoteCallMessageBoxBySetCtx(DWORD pid, LPCWSTR dllPath)
         return STATUS_UNSUCCESSFUL;
     }
 
-    /*
-    using Fun_MiniDumpWriteDump = BOOL(__stdcall*)(
-        _In_ HANDLE hProcess,
-        _In_ DWORD ProcessId,
-        _In_ HANDLE hFile,
-        _In_ MINIDUMP_TYPE DumpType,
-        _In_opt_ PVOID ExceptionParam,
-        _In_opt_ PVOID UserStreamParam,
-        _In_opt_ PVOID CallbackParam
-        );
-
-    MiniDumpWriteDump(
-        hProcess,
-        pid,
-        hDumpFile,
-        MiniDumpWithFullMemory,  // full dump
-        NULL,
-        NULL,
-        NULL
-    );
-    */
     callInfo->pTargetEthread = pTargetEthread;
     callInfo->userFunction = fun_MessageBoxW;
     callInfo->paramCnt = 4;

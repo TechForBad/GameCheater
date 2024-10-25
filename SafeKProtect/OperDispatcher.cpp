@@ -6,9 +6,9 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
 
     switch (pMsg->oper)
     {
-    case COMM::Oper_ProcessMemoryRead:
+    case COMM::Oper_ProcessMemoryReadByMdl:
     {
-        ntStatus = ReadProcessMemory(
+        ntStatus = ReadProcessMemoryByMdl(
             pMsg->input_MemoryRead.pid,
             pMsg->input_MemoryRead.pUserSrc,
             pMsg->input_MemoryRead.readLen,
@@ -16,14 +16,24 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
         );
         break;
     }
-    case COMM::Oper_ProcessMemoryWrite:
+    case COMM::Oper_ProcessMemoryWriteByMdl:
     {
-        ntStatus = WriteProcessMemory(
+        ntStatus = WriteProcessMemoryByMdl(
             pMsg->input_MemoryWrite.pUserSrc,
             pMsg->input_MemoryWrite.writeLen,
             pMsg->input_MemoryWrite.pid,
             pMsg->input_MemoryWrite.pUserDst
         );
+        break;
+    }
+    case COMM::Oper_ProcessMemoryReadByPhysical:
+    {
+
+        break;
+    }
+    case COMM::Oper_ProcessMemoryWriteByPhysical:
+    {
+
         break;
     }
     case COMM::Oper_ProcessModuleBase:
@@ -143,11 +153,11 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
         );
         break;
     }
-    case COMM::Oper_ProcessCreateFullDump:
+    case COMM::Oper_ProcessCallMiniDumpWriteDump:
     {
-        ntStatus = ProcessCreateFullDump(
-            pMsg->input_ProcessCreateFullDump.pid,
-            pMsg->input_ProcessCreateFullDump.dumpPath
+        ntStatus = ProcessCallMiniDumpWriteDump(
+            pMsg->input_ProcessCallMiniDumpWriteDump.pid,
+            pMsg->input_ProcessCallMiniDumpWriteDump.dumpPath
         );
         break;
     }
@@ -161,7 +171,7 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
     return ntStatus;
 }
 
-NTSTATUS OperDispatcher::ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst)
+NTSTATUS OperDispatcher::ReadProcessMemoryByMdl(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst)
 {
     PEPROCESS pEprocess = NULL;
     NTSTATUS ntStatus = PsLookupProcessByProcessId(ULongToHandle(pid), &pEprocess);
@@ -245,7 +255,7 @@ NTSTATUS OperDispatcher::ReadProcessMemory(IN DWORD pid, IN PBYTE pUserSrc, IN U
     return STATUS_SUCCESS;
 }
 
-NTSTATUS OperDispatcher::WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst)
+NTSTATUS OperDispatcher::WriteProcessMemoryByMdl(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst)
 {
     PMDL pMdl = IoAllocateMdl(pUserSrc, writeLen, FALSE, FALSE, NULL);
     if (NULL == pMdl)
@@ -332,6 +342,42 @@ NTSTATUS OperDispatcher::WriteProcessMemory(IN PBYTE pUserSrc, IN ULONG writeLen
     MmUnlockPages(pMdl);
     IoFreeMdl(pMdl);
 
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS OperDispatcher::ReadProcessMemoryByPhysical(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst)
+{
+    PVOID pPhySrc = NULL;
+    NTSTATUS ntStatus = MemoryUtils::GetPhysicalAddress(pid, pUserSrc, &pPhySrc);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("GetPhysicalAddress failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+    ntStatus = MemoryUtils::ReadPhysicalMemory((PBYTE)pPhySrc, readLen, pUserDst);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("ReadPhysicalMemory failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS OperDispatcher::WriteProcessMemoryByPhysical(IN PBYTE pUserSrc, IN ULONG writeLen, IN DWORD pid, OUT PBYTE pUserDst)
+{
+    PVOID pPhyDst = NULL;
+    NTSTATUS ntStatus = MemoryUtils::GetPhysicalAddress(pid, pUserDst, &pPhyDst);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("GetPhysicalAddress failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
+    ntStatus = MemoryUtils::WritePhysicalMemory(pUserSrc, writeLen, pPhyDst);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        LOG_ERROR("WritePhysicalMemory failed, ntStatus: 0x%x", ntStatus);
+        return ntStatus;
+    }
     return STATUS_SUCCESS;
 }
 
@@ -562,7 +608,36 @@ NTSTATUS OperDispatcher::InjectDllWithNoModuleByEventHook(IN DWORD pid, IN LPCWS
     });
 }
 
-NTSTATUS OperDispatcher::ProcessCreateFullDump(IN DWORD pid, IN LPCWSTR dumpPath)
+NTSTATUS OperDispatcher::ProcessCallMessageBox(IN DWORD pid)
 {
-    return ApcUtils::RemoteCallMessageBoxBySetCtx(pid, dumpPath);
+    return ApcUtils::RemoteCallMessageBoxBySetCtx(pid);
+}
+
+NTSTATUS OperDispatcher::ProcessCallMiniDumpWriteDump(IN DWORD pid, IN LPCWSTR dumpPath)
+{
+    // PVOID fun_MsgBoxW = MemoryUtils::GetModuleExportAddress("dbghelp.dll", "MiniDumpWriteDump");
+
+    /*
+    using Fun_MiniDumpWriteDump = BOOL(__stdcall*)(
+        _In_ HANDLE hProcess,
+        _In_ DWORD ProcessId,
+        _In_ HANDLE hFile,
+        _In_ MINIDUMP_TYPE DumpType,
+        _In_opt_ PVOID ExceptionParam,
+        _In_opt_ PVOID UserStreamParam,
+        _In_opt_ PVOID CallbackParam
+        );
+
+    MiniDumpWriteDump(
+        hProcess,
+        pid,
+        hDumpFile,
+        MiniDumpWithFullMemory,  // full dump
+        NULL,
+        NULL,
+        NULL
+    );
+    */
+
+    return STATUS_UNSUCCESSFUL;
 }
