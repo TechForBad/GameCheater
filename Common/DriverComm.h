@@ -72,6 +72,12 @@ public:
     // 为指定进程调用MiniDumpWriteDump创建full dump
     bool ProcessCallMiniDumpWriteDump(IN DWORD pid, IN LPCWSTR dumpPath);
 
+    // 初始化Vm
+    bool InitVm();
+
+    // 取消Vm
+    bool UnInitVm();
+
 private:
     DriverComm() = default;
     ~DriverComm() = default;

@@ -672,3 +672,49 @@ bool DriverComm::ProcessCallMiniDumpWriteDump(IN DWORD pid, IN LPCWSTR dumpPath)
 
     return true;
 }
+
+bool DriverComm::InitVm()
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_InitVm;
+    cmsg_.needOutput = false;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}
+
+bool DriverComm::UnInitVm()
+{
+    if (!is_init_)
+    {
+        LOG("no init");
+        return false;
+    }
+
+    ZeroMemory(&cmsg_, sizeof(COMM::CMSG));
+    cmsg_.oper = COMM::Operation::Oper_UnInitVm;
+    cmsg_.needOutput = false;
+
+    ULONG ulRet = 0;
+    func_NtQueryIntervalProfile_(COMM::CTRL_CODE, &ulRet);
+    if (COMM::CTRL_CODE != ulRet)
+    {
+        LOG("send control code failed, ret code: 0x%x", ulRet);
+        return false;
+    }
+
+    return true;
+}

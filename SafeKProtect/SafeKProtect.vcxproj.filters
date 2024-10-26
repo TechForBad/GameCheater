@@ -43,6 +43,9 @@
     <ClInclude Include="log.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="vmUtils.h">
+      <Filter>VmUtils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="源文件">
@@ -112,6 +115,9 @@
     </ClCompile>
     <ClCompile Include="usermodeCallback.cpp">
       <Filter>ApcUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="vmUtils.cpp">
+      <Filter>VmUtils</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

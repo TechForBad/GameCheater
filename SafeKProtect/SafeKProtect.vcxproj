@@ -167,6 +167,7 @@
     <ClCompile Include="setCtxCall.cpp" />
     <ClCompile Include="shellcode.cpp" />
     <ClCompile Include="usermodeCallback.cpp" />
+    <ClCompile Include="vmUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="apcUtils.h" />
@@ -183,6 +184,7 @@
     <ClInclude Include="setCtxCall.h" />
     <ClInclude Include="shellcode.h" />
     <ClInclude Include="usermodeCallback.h" />
+    <ClInclude Include="vmUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

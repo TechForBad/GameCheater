@@ -67,4 +67,10 @@ private:
 
     // 为指定进程调用MiniDumpWriteDump创建full dump
     static NTSTATUS ProcessCallMiniDumpWriteDump(IN DWORD pid, IN LPCWSTR dumpPath);
+
+    // 初始化Vm
+    static NTSTATUS InitVm();
+
+    // 取消Vm
+    static NTSTATUS UnInitVm();
 };

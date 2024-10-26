@@ -28,14 +28,18 @@ enum Operation : unsigned long
     Oper_ProcessMemoryReadByPhysical,
     // 通过写物理内存写进程内存
     Oper_ProcessMemoryWriteByPhysical,
+
     // 获取进程模块基地址
     Oper_ProcessModuleBase,
+
     // 创建APC
     Oper_CreateAPC,
+
     // 为进程分配内存
     Oper_AllocProcessMem,
     // 为进程释放内存
     Oper_FreeProcessMem,
+
     // 挂起线程
     Oper_SuspendTargetThread,
     // 恢复线程
@@ -46,6 +50,7 @@ enum Operation : unsigned long
     Oper_ResumeTargetProcess,
     // 打开进程
     Oper_GetHandleForProcessID,
+
     // 读物理地址
     Oper_ReadPhysicalMemory,
     // 写物理地址
@@ -60,6 +65,11 @@ enum Operation : unsigned long
 
     // 为指定进程创建full dump
     Oper_ProcessCallMiniDumpWriteDump,
+
+    // 初始化Vm
+    Oper_InitVm,
+    // 取消Vm
+    Oper_UnInitVm,
 };
 
 #pragma pack(1)

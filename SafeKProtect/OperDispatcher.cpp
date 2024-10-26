@@ -161,6 +161,16 @@ NTSTATUS OperDispatcher::DispatchOper(IN OUT COMM::PCMSG pMsg)
         );
         break;
     }
+    case COMM::Oper_InitVm:
+    {
+        ntStatus = InitVm();
+        break;
+    }
+    case COMM::Oper_UnInitVm:
+    {
+        ntStatus = UnInitVm();
+        break;
+    }
     default:
     {
         LOG_ERROR("Unknown OperCode: 0x%x", pMsg->oper);
@@ -640,4 +650,15 @@ NTSTATUS OperDispatcher::ProcessCallMiniDumpWriteDump(IN DWORD pid, IN LPCWSTR d
     */
 
     return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS OperDispatcher::InitVm()
+{
+    return VmUtils::InitVm();
+}
+
+NTSTATUS OperDispatcher::UnInitVm()
+{
+    VmUtils::UnInitVm();
+    return STATUS_SUCCESS;
 }
