@@ -10,7 +10,6 @@
 #include <intrin.h>
 #include "asm.h"
 #include "common.h"
-#include "log.h"
 
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
@@ -118,12 +117,12 @@ static HardwarePte *UtilpAddressToPde(_In_ const void *address);
 static HardwarePte *UtilpAddressToPte(_In_ const void *address);
 
 #if defined(ALLOC_PRAGMA)
-#pragma alloc_text(INIT, UtilInitialization)
+#pragma alloc_text(PAGE, UtilInitialization)
 #pragma alloc_text(PAGE, UtilTermination)
-#pragma alloc_text(INIT, UtilpInitializePageTableVariables)
-#pragma alloc_text(INIT, UtilpInitializeRtlPcToFileHeader)
-#pragma alloc_text(INIT, UtilpInitializePhysicalMemoryRanges)
-#pragma alloc_text(INIT, UtilpBuildPhysicalMemoryRanges)
+#pragma alloc_text(PAGE, UtilpInitializePageTableVariables)
+#pragma alloc_text(PAGE, UtilpInitializeRtlPcToFileHeader)
+#pragma alloc_text(PAGE, UtilpInitializePhysicalMemoryRanges)
+#pragma alloc_text(PAGE, UtilpBuildPhysicalMemoryRanges)
 #pragma alloc_text(PAGE, UtilForEachProcessor)
 #pragma alloc_text(PAGE, UtilSleep)
 #pragma alloc_text(PAGE, UtilGetSystemProcAddress)
@@ -169,7 +168,7 @@ UtilInitialization(PDRIVER_OBJECT driver_object) {
   PAGED_CODE()
 
   auto status = UtilpInitializePageTableVariables();
-  HYPERPLATFORM_LOG_DEBUG(
+  LOG_DEBUG(
       "PXE at %016Ix, PPE at %016Ix, PDE at %016Ix, PTE at %016Ix",
       g_utilp_pxe_base, g_utilp_ppe_base, g_utilp_pde_base, g_utilp_pte_base);
   if (!NT_SUCCESS(status)) {
@@ -267,7 +266,7 @@ _Use_decl_annotations_ static NTSTATUS UtilpInitializePageTableVariables() {
   }
 
   found += sizeof(kPatternWin10x64);
-  HYPERPLATFORM_LOG_DEBUG("Found a hard coded PTE_BASE at %016Ix", found);
+  LOG_DEBUG("Found a hard coded PTE_BASE at %016Ix", found);
 
   const auto pte_base = *reinterpret_cast<ULONG_PTR *>(found);
   const auto index = (pte_base >> kUtilpPxiShift) & kUtilpPxiMask;
@@ -359,14 +358,14 @@ _Use_decl_annotations_ static NTSTATUS UtilpInitializePhysicalMemoryRanges() {
   for (auto i = 0ul; i < ranges->number_of_runs; ++i) {
     const auto base_addr =
         static_cast<ULONG64>(ranges->run[i].base_page) * PAGE_SIZE;
-    HYPERPLATFORM_LOG_DEBUG("Physical Memory Range: %016llx - %016llx",
+    LOG_DEBUG("Physical Memory Range: %016llx - %016llx",
                             base_addr,
                             base_addr + ranges->run[i].page_count * PAGE_SIZE);
   }
 
   const auto pm_size =
       static_cast<ULONG64>(ranges->number_of_pages) * PAGE_SIZE;
-  HYPERPLATFORM_LOG_DEBUG("Physical Memory Total: %llu KB", pm_size / 1024);
+  LOG_DEBUG("Physical Memory Total: %llu KB", pm_size / 1024);
 
   return STATUS_SUCCESS;
 }
@@ -688,7 +687,7 @@ _Use_decl_annotations_ NTSTATUS UtilVmCall(HypercallNumber hypercall_number,
   } __except (EXCEPTION_EXECUTE_HANDLER) {
     const auto status = GetExceptionCode();
     HYPERPLATFORM_COMMON_DBG_BREAK();
-    HYPERPLATFORM_LOG_WARN_SAFE("Exception thrown (code %08x)", status);
+    LOG_WARN("Exception thrown (code %08x)", status);
     return status;
   }
 }
@@ -702,7 +701,7 @@ _Use_decl_annotations_ void UtilDumpGpRegisters(const AllRegisters *all_regs,
   }
 
 #if defined(_AMD64_)
-  HYPERPLATFORM_LOG_DEBUG_SAFE(
+  LOG_DEBUG(
       "Context at %p: "
       "rax= %016Ix rbx= %016Ix rcx= %016Ix "
       "rdx= %016Ix rsi= %016Ix rdi= %016Ix "
@@ -716,7 +715,7 @@ _Use_decl_annotations_ void UtilDumpGpRegisters(const AllRegisters *all_regs,
       all_regs->gp.r11, all_regs->gp.r12, all_regs->gp.r13, all_regs->gp.r14,
       all_regs->gp.r15, all_regs->flags.all);
 #else
-  HYPERPLATFORM_LOG_DEBUG_SAFE(
+  LOG_DEBUG(
       "Context at %p: "
       "eax= %08Ix ebx= %08Ix ecx= %08Ix "
       "edx= %08Ix esi= %08Ix edi= %08Ix "

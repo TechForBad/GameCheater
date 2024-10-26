@@ -7,7 +7,6 @@
 
 #include "common.h"
 #include "performance.h"
-#include "log.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -34,7 +33,7 @@ static PerfCollector::OutputRoutine PerfpOutputRoutine;
 static PerfCollector::FinalOutputRoutine PerfpFinalOutputRoutine;
 
 #if defined(ALLOC_PRAGMA)
-#pragma alloc_text(INIT, PerfInitialization)
+#pragma alloc_text(PAGE, PerfInitialization)
 #pragma alloc_text(PAGE, PerfTermination)
 #endif
 
@@ -87,7 +86,7 @@ _Use_decl_annotations_ void PerfTermination() {
 _Use_decl_annotations_ static void PerfpInitialOutputRoutine(
     void* output_context) {
   UNREFERENCED_PARAMETER(output_context);
-  HYPERPLATFORM_LOG_INFO("%-45s,%-20s,%-20s", "FunctionName(Line)",
+  LOG_INFO("%-45s,%-20s,%-20s", "FunctionName(Line)",
                          "Execution Count", "Elapsed Time");
 }
 
@@ -95,7 +94,7 @@ _Use_decl_annotations_ static void PerfpOutputRoutine(
     const char* location_name, ULONG64 total_execution_count,
     ULONG64 total_elapsed_time, void* output_context) {
   UNREFERENCED_PARAMETER(output_context);
-  HYPERPLATFORM_LOG_INFO("%-45s,%20I64u,%20I64u,", location_name,
+  LOG_INFO("%-45s,%20I64u,%20I64u,", location_name,
                          total_execution_count, total_elapsed_time);
 }
 

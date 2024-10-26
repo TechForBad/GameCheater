@@ -11,7 +11,6 @@
 #include "asm.h"
 #include "common.h"
 #include "ept.h"
-#include "log.h"
 #include "util.h"
 #include "vmm.h"
 
@@ -178,7 +177,7 @@ _Use_decl_annotations_ static bool VmpIsVmxAvailable() {
   __cpuid(cpu_info, 1);
   const CpuFeaturesEcx cpu_features = {static_cast<ULONG32>(cpu_info[2])};
   if (!cpu_features.fields.vmx) {
-    HYPERPLATFORM_LOG_ERROR("VMX features are not supported.");
+    LOG_ERROR("VMX features are not supported.");
     return false;
   }
 
@@ -187,7 +186,7 @@ _Use_decl_annotations_ static bool VmpIsVmxAvailable() {
   const Ia32VmxBasicMsr vmx_basic_msr = {UtilReadMsr64(Msr::kIa32VmxBasic)};
   if (static_cast<memory_type>(vmx_basic_msr.fields.memory_type) !=
       memory_type::kWriteBack) {
-    HYPERPLATFORM_LOG_ERROR("Write-back cache type is not supported.");
+    LOG_ERROR("Write-back cache type is not supported.");
     return false;
   }
 
@@ -195,19 +194,19 @@ _Use_decl_annotations_ static bool VmpIsVmxAvailable() {
   Ia32FeatureControlMsr vmx_feature_control = {
       UtilReadMsr64(Msr::kIa32FeatureControl)};
   if (!vmx_feature_control.fields.lock) {
-    HYPERPLATFORM_LOG_INFO("The lock bit is clear. Attempting to set 1.");
+    LOG_INFO("The lock bit is clear. Attempting to set 1.");
     const auto status = UtilForEachProcessor(VmpSetLockBitCallback, nullptr);
     if (!NT_SUCCESS(status)) {
       return false;
     }
   }
   if (!vmx_feature_control.fields.enable_vmxon) {
-    HYPERPLATFORM_LOG_ERROR("VMX features are not enabled.");
+    LOG_ERROR("VMX features are not enabled.");
     return false;
   }
 
   if (!EptIsEptAvailable()) {
-    HYPERPLATFORM_LOG_ERROR("EPT features are not fully supported.");
+    LOG_ERROR("EPT features are not fully supported.");
     return false;
   }
   return true;
@@ -227,7 +226,7 @@ _Use_decl_annotations_ static NTSTATUS VmpSetLockBitCallback(void *context) {
   UtilWriteMsr64(Msr::kIa32FeatureControl, vmx_feature_control.all);
   vmx_feature_control.all = UtilReadMsr64(Msr::kIa32FeatureControl);
   if (!vmx_feature_control.fields.lock) {
-    HYPERPLATFORM_LOG_ERROR("The lock bit is still clear.");
+    LOG_ERROR("The lock bit is still clear.");
     return STATUS_DEVICE_CONFIGURATION_ERROR;
   }
   return STATUS_SUCCESS;
@@ -244,7 +243,7 @@ _Use_decl_annotations_ static SharedProcessorData *VmpInitializeSharedData() {
     return nullptr;
   }
   RtlZeroMemory(shared_data, sizeof(SharedProcessorData));
-  HYPERPLATFORM_LOG_DEBUG("shared_data           = %p", shared_data);
+  LOG_DEBUG("shared_data           = %p", shared_data);
 
   // Setup MSR bitmap
   shared_data->msr_bitmap = VmpBuildMsrBitmap();
@@ -342,14 +341,14 @@ _Use_decl_annotations_ static UCHAR *VmpBuildIoBitmaps() {
 _Use_decl_annotations_ static NTSTATUS VmpStartVm(void *context) {
   PAGED_CODE()
 
-  HYPERPLATFORM_LOG_INFO("Initializing VMX for the processor %lu.",
+  LOG_INFO("Initializing VMX for the processor %lu.",
                          KeGetCurrentProcessorNumberEx(nullptr));
   const auto ok = AsmInitializeVm(VmpInitializeVm, context);
   NT_ASSERT(VmpIsHyperPlatformInstalled() == ok);
   if (!ok) {
     return STATUS_UNSUCCESSFUL;
   }
-  HYPERPLATFORM_LOG_INFO("Initialized successfully.");
+  LOG_INFO("Initialized successfully.");
   return STATUS_SUCCESS;
 }
 
@@ -468,20 +467,20 @@ _Use_decl_annotations_ static void VmpInitializeVm(
   const auto vmm_stack_base =
       vmm_stack_region_base - sizeof(void *) - sizeof(MachineFrame);
 
-  HYPERPLATFORM_LOG_DEBUG("vmm_stack_limit       = %p",
+  LOG_DEBUG("vmm_stack_limit       = %p",
                           processor_data->vmm_stack_limit);
-  HYPERPLATFORM_LOG_DEBUG("vmm_stack_region_base = %p",
+  LOG_DEBUG("vmm_stack_region_base = %p",
                           reinterpret_cast<void *>(vmm_stack_region_base));
-  HYPERPLATFORM_LOG_DEBUG("vmm_stack_data        = %p",
+  LOG_DEBUG("vmm_stack_data        = %p",
                           reinterpret_cast<void *>(vmm_stack_data));
-  HYPERPLATFORM_LOG_DEBUG("vmm_stack_base        = %p",
+  LOG_DEBUG("vmm_stack_base        = %p",
                           reinterpret_cast<void *>(vmm_stack_base));
-  HYPERPLATFORM_LOG_DEBUG("processor_data        = %p stored at %p",
+  LOG_DEBUG("processor_data        = %p stored at %p",
                           processor_data,
                           reinterpret_cast<void *>(vmm_stack_data));
-  HYPERPLATFORM_LOG_DEBUG("guest_stack_pointer   = %p",
+  LOG_DEBUG("guest_stack_pointer   = %p",
                           reinterpret_cast<void *>(guest_stack_pointer));
-  HYPERPLATFORM_LOG_DEBUG("guest_inst_pointer    = %p",
+  LOG_DEBUG("guest_inst_pointer    = %p",
                           reinterpret_cast<void *>(guest_instruction_pointer));
 
   // Set up VMCS
@@ -528,10 +527,10 @@ _Use_decl_annotations_ static bool VmpEnterVmxMode(
   cr0.all |= cr0_fixed0.all;
   __writecr0(cr0.all);
 
-  HYPERPLATFORM_LOG_DEBUG("IA32_VMX_CR0_FIXED0   = %08Ix", cr0_fixed0.all);
-  HYPERPLATFORM_LOG_DEBUG("IA32_VMX_CR0_FIXED1   = %08Ix", cr0_fixed1.all);
-  HYPERPLATFORM_LOG_DEBUG("Original CR0          = %08Ix", cr0_original.all);
-  HYPERPLATFORM_LOG_DEBUG("Fixed CR0             = %08Ix", cr0.all);
+  LOG_DEBUG("IA32_VMX_CR0_FIXED0   = %08Ix", cr0_fixed0.all);
+  LOG_DEBUG("IA32_VMX_CR0_FIXED1   = %08Ix", cr0_fixed1.all);
+  LOG_DEBUG("Original CR0          = %08Ix", cr0_original.all);
+  LOG_DEBUG("Fixed CR0             = %08Ix", cr0.all);
 
   // See: VMX-FIXED BITS IN CR4
   const Cr4 cr4_fixed0 = {UtilReadMsr(Msr::kIa32VmxCr4Fixed0)};
@@ -542,10 +541,10 @@ _Use_decl_annotations_ static bool VmpEnterVmxMode(
   cr4.all |= cr4_fixed0.all;
   __writecr4(cr4.all);
 
-  HYPERPLATFORM_LOG_DEBUG("IA32_VMX_CR4_FIXED0   = %08Ix", cr4_fixed0.all);
-  HYPERPLATFORM_LOG_DEBUG("IA32_VMX_CR4_FIXED1   = %08Ix", cr4_fixed1.all);
-  HYPERPLATFORM_LOG_DEBUG("Original CR4          = %08Ix", cr4_original.all);
-  HYPERPLATFORM_LOG_DEBUG("Fixed CR4             = %08Ix", cr4.all);
+  LOG_DEBUG("IA32_VMX_CR4_FIXED0   = %08Ix", cr4_fixed0.all);
+  LOG_DEBUG("IA32_VMX_CR4_FIXED1   = %08Ix", cr4_fixed1.all);
+  LOG_DEBUG("Original CR4          = %08Ix", cr4_original.all);
+  LOG_DEBUG("Fixed CR4             = %08Ix", cr4.all);
 
   // Write a VMCS revision identifier
   const Ia32VmxBasicMsr vmx_basic_msr = {UtilReadMsr64(Msr::kIa32VmxBasic)};
@@ -642,15 +641,15 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   VmxSecondaryProcessorBasedControls vm_procctl2 = {VmpAdjustControlValue(
       Msr::kIa32VmxProcBasedCtls2, vm_procctl2_requested.all)};
 
-  HYPERPLATFORM_LOG_DEBUG("VmEntryControls                  = %08x",
+  LOG_DEBUG("VmEntryControls                  = %08x",
                           vm_entryctl.all);
-  HYPERPLATFORM_LOG_DEBUG("VmExitControls                   = %08x",
+  LOG_DEBUG("VmExitControls                   = %08x",
                           vm_exitctl.all);
-  HYPERPLATFORM_LOG_DEBUG("PinBasedControls                 = %08x",
+  LOG_DEBUG("PinBasedControls                 = %08x",
                           vm_pinctl.all);
-  HYPERPLATFORM_LOG_DEBUG("ProcessorBasedControls           = %08x",
+  LOG_DEBUG("ProcessorBasedControls           = %08x",
                           vm_procctl.all);
-  HYPERPLATFORM_LOG_DEBUG("SecondaryProcessorBasedControls  = %08x",
+  LOG_DEBUG("SecondaryProcessorBasedControls  = %08x",
                           vm_procctl2.all);
 
   // NOTE: Comment in any of those as needed
@@ -825,7 +824,7 @@ _Use_decl_annotations_ static void VmpLaunchVm() {
 
   auto error_code = UtilVmRead(VmcsField::kVmInstructionError);
   if (error_code) {
-    HYPERPLATFORM_LOG_WARN("VM_INSTRUCTION_ERROR = %Iu", error_code);
+    LOG_WARN("VM_INSTRUCTION_ERROR = %Iu", error_code);
   }
 
   auto vmx_status = static_cast<VmxStatus>(__vmx_vmlaunch());
@@ -834,7 +833,7 @@ _Use_decl_annotations_ static void VmpLaunchVm() {
   // jumps to an address specified by GUEST_RIP.
   if (vmx_status == VmxStatus::kErrorWithStatus) {
     error_code = UtilVmRead(VmcsField::kVmInstructionError);
-    HYPERPLATFORM_LOG_ERROR("VM_INSTRUCTION_ERROR = %Iu", error_code);
+    LOG_ERROR("VM_INSTRUCTION_ERROR = %Iu", error_code);
   }
   HYPERPLATFORM_COMMON_DBG_BREAK();
 }
@@ -934,12 +933,12 @@ _Use_decl_annotations_ static ULONG VmpAdjustControlValue(
 _Use_decl_annotations_ void VmTermination() {
   PAGED_CODE()
 
-  HYPERPLATFORM_LOG_INFO("Uninstalling VMM.");
+  LOG_INFO("Uninstalling VMM.");
   auto status = UtilForEachProcessor(VmpStopVm, nullptr);
   if (NT_SUCCESS(status)) {
-    HYPERPLATFORM_LOG_INFO("The VMM has been uninstalled.");
+    LOG_INFO("The VMM has been uninstalled.");
   } else {
-    HYPERPLATFORM_LOG_WARN("The VMM has not been uninstalled (%08x).", status);
+    LOG_WARN("The VMM has not been uninstalled (%08x).", status);
   }
   NT_ASSERT(!VmpIsHyperPlatformInstalled());
 }
@@ -949,7 +948,7 @@ _Use_decl_annotations_ static NTSTATUS VmpStopVm(void *context) {
   UNREFERENCED_PARAMETER(context);
   PAGED_CODE()
 
-  HYPERPLATFORM_LOG_INFO("Terminating VMX for the processor %lu.",
+  LOG_INFO("Terminating VMX for the processor %lu.",
                          KeGetCurrentProcessorNumberEx(nullptr));
 
   // Stop virtualization and get an address of the management structure
@@ -1009,7 +1008,7 @@ _Use_decl_annotations_ static void VmpFreeSharedData(
     return;
   }
 
-  HYPERPLATFORM_LOG_DEBUG("Freeing shared data...");
+  LOG_DEBUG("Freeing shared data...");
   if (processor_data->shared_data->io_bitmap_a) {
     ExFreePoolWithTag(processor_data->shared_data->io_bitmap_a,
                       kHyperPlatformCommonPoolTag);

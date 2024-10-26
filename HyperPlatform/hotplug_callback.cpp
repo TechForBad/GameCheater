@@ -7,7 +7,6 @@
 
 #include "hotplug_callback.h"
 #include "common.h"
-#include "log.h"
 #include "vm.h"
 
 extern "C" {
@@ -34,7 +33,7 @@ extern "C" {
 static PROCESSOR_CALLBACK_FUNCTION HotplugCallbackpCallbackRoutine;
 
 #if defined(ALLOC_PRAGMA)
-#pragma alloc_text(INIT, HotplugCallbackInitialization)
+#pragma alloc_text(PAGE, HotplugCallbackInitialization)
 #pragma alloc_text(PAGE, HotplugCallbackTermination)
 #pragma alloc_text(PAGE, HotplugCallbackpCallbackRoutine)
 #endif
@@ -85,14 +84,14 @@ _Use_decl_annotations_ static void HotplugCallbackpCallbackRoutine(
     return;
   }
 
-  HYPERPLATFORM_LOG_DEBUG("A new processor %hu:%hu has been added.",
+  LOG_DEBUG("A new processor %hu:%hu has been added.",
                           change_context->ProcNumber.Group,
                           change_context->ProcNumber.Number);
   HYPERPLATFORM_COMMON_DBG_BREAK();
 
   auto status = VmHotplugCallback(change_context->ProcNumber);
   if (!NT_SUCCESS(status)) {
-    HYPERPLATFORM_LOG_ERROR("Failed to virtualize the new processors.");
+    LOG_ERROR("Failed to virtualize the new processors.");
   }
 }
 

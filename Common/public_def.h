@@ -12,9 +12,3 @@
 #define MY_DLL_NAME L"MyDll.dll"
 
 #define PROCESS_NAME_IN_EPROCESS_CHEAT_ENGINE "richstuff-x86"
-
-#define LOG_TAG "GameCheater"
-
-#define __FUNC__ __func__
-#define __FILENAME__ \
-  (strrchr(__FILE__, '\\') ? (strrchr(__FILE__, '\\') + 1) : __FILE__)

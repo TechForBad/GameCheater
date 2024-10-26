@@ -8,7 +8,6 @@
 #include "ept.h"
 #include "asm.h"
 #include "common.h"
-#include "log.h"
 #include "util.h"
 #include "performance.h"
 
@@ -203,7 +202,7 @@ _Use_decl_annotations_ void EptInitializeMtrrEntries() {
   // Read MTRR capability
   Ia32MtrrCapabilitiesMsr mtrr_capabilities = {
       UtilReadMsr64(Msr::kIa32MtrrCap)};
-  HYPERPLATFORM_LOG_DEBUG(
+  LOG_DEBUG(
       "MTRR Default=%llu, VariableCount=%llu, FixedSupported=%llu, "
       "FixedEnabled=%llu",
       default_type.fields.default_mtemory_type,
@@ -641,7 +640,7 @@ _Use_decl_annotations_ void EptHandleEptViolation(EptData *ept_data) {
       exit_qualification.fields.ept_writeable ||
       exit_qualification.fields.ept_executable) {
     HYPERPLATFORM_COMMON_DBG_BREAK();
-    HYPERPLATFORM_LOG_ERROR_SAFE("[UNK1] VA = %p, PA = %016llx", fault_va,
+    LOG_ERROR("[UNK1] VA = %p, PA = %016llx", fault_va,
                                  fault_pa);
     return;
   }
@@ -649,7 +648,7 @@ _Use_decl_annotations_ void EptHandleEptViolation(EptData *ept_data) {
   const auto ept_entry = EptGetEptPtEntry(ept_data, fault_pa);
   if (ept_entry && ept_entry->all) {
     HYPERPLATFORM_COMMON_DBG_BREAK();
-    HYPERPLATFORM_LOG_ERROR_SAFE("[UNK2] VA = %p, PA = %016llx", fault_va,
+    LOG_ERROR("[UNK2] VA = %p, PA = %016llx", fault_va,
                                  fault_pa);
     return;
   }
@@ -741,7 +740,7 @@ _Use_decl_annotations_ static EptCommonEntry *EptpGetEptPtEntry(
 
 // Frees all EPT stuff
 _Use_decl_annotations_ void EptTermination(EptData *ept_data) {
-  HYPERPLATFORM_LOG_DEBUG("Used pre-allocated entries  = %2d / %2d",
+  LOG_DEBUG("Used pre-allocated entries  = %2d / %2d",
                           ept_data->preallocated_entries_count,
                           kEptpNumberOfPreallocatedEntries);
 

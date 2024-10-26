@@ -1,6 +1,6 @@
 #include "DriverComm.h"
 
-bool DriverComm::Init()
+bool DriverComm::Init(bool normalLoad)
 {
     // 初始化驱动通信
     if (!InitDriverComm())
@@ -13,7 +13,7 @@ bool DriverComm::Init()
     if (!TestDriverComm())
     {
         // 加载驱动
-        if (!LoadDriver(false))
+        if (!LoadDriver(normalLoad))
         {
             LOG("LoadDriver failed");
             return false;

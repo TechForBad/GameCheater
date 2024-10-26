@@ -3,50 +3,43 @@
 #include "../HyperPlatform/common.h"
 #include "../HyperPlatform/global_object.h"
 #include "../HyperPlatform/hotplug_callback.h"
-#include "../HyperPlatform/log.h"
 #include "../HyperPlatform/power_callback.h"
 #include "../HyperPlatform/util.h"
 #include "../HyperPlatform/vm.h"
 #include "../HyperPlatform/performance.h"
 
+BOOL VmUtils::is_vm_init_{ FALSE };
+
 NTSTATUS VmUtils::InitVm()
 {
-    static const wchar_t kLogFilePath[] = L"\\SystemRoot\\HyperPlatform.log";
-    static const auto kLogLevel =
-        (IsReleaseBuild()) ? kLogPutLevelInfo | kLogOptDisableFunctionName
-        : kLogPutLevelDebug | kLogOptDisableFunctionName;
+    if (is_vm_init_)
+    {
+        LOG_INFO("vm has been inited");
+        return STATUS_SUCCESS;
+    }
 
-    PDRIVER_OBJECT pDriverObject = NULL;
-
-    NTSTATUS status = STATUS_UNSUCCESSFUL;
+    PDRIVER_OBJECT pDriverObject = GetDriverObject(L"\\Driver\\disk");
+    if (NULL == pDriverObject)
+    {
+        LOG_ERROR("GetDriverObject failed");
+        return STATUS_UNSUCCESSFUL;
+    }
 
     // Request NX Non-Paged Pool when available
-    ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
-
-    // Initialize log functions
-    bool need_reinitialization = false;
-    status = LogInitialization(kLogLevel, kLogFilePath);
-    if (status == STATUS_REINITIALIZATION_NEEDED)
-    {
-        need_reinitialization = true;
-    }
-    else if (!NT_SUCCESS(status))
-    {
-        return status;
-    }
+    // ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
 
     // Test if the system is supported
     if (!DriverpIsSuppoetedOS())
     {
-        LogTermination();
+        LOG_ERROR("DriverpIsSuppoetedOS failed");
         return STATUS_CANCELLED;
     }
 
     // Initialize global variables
-    status = GlobalObjectInitialization();
+    NTSTATUS status = GlobalObjectInitialization();
     if (!NT_SUCCESS(status))
     {
-        LogTermination();
+        LOG_ERROR("GlobalObjectInitialization failed");
         return status;
     }
 
@@ -54,8 +47,8 @@ NTSTATUS VmUtils::InitVm()
     status = PerfInitialization();
     if (!NT_SUCCESS(status))
     {
+        LOG_ERROR("PerfInitialization failed");
         GlobalObjectTermination();
-        LogTermination();
         return status;
     }
 
@@ -63,9 +56,9 @@ NTSTATUS VmUtils::InitVm()
     status = UtilInitialization(pDriverObject);
     if (!NT_SUCCESS(status))
     {
+        LOG_ERROR("UtilInitialization failed");
         PerfTermination();
         GlobalObjectTermination();
-        LogTermination();
         return status;
     }
 
@@ -73,10 +66,10 @@ NTSTATUS VmUtils::InitVm()
     status = PowerCallbackInitialization();
     if (!NT_SUCCESS(status))
     {
+        LOG_ERROR("PowerCallbackInitialization failed");
         UtilTermination();
         PerfTermination();
         GlobalObjectTermination();
-        LogTermination();
         return status;
     }
 
@@ -84,11 +77,11 @@ NTSTATUS VmUtils::InitVm()
     status = HotplugCallbackInitialization();
     if (!NT_SUCCESS(status))
     {
+        LOG_ERROR("HotplugCallbackInitialization failed");
         PowerCallbackTermination();
         UtilTermination();
         PerfTermination();
         GlobalObjectTermination();
-        LogTermination();
         return status;
     }
 
@@ -96,34 +89,55 @@ NTSTATUS VmUtils::InitVm()
     status = VmInitialization();
     if (!NT_SUCCESS(status))
     {
+        LOG_ERROR("VmInitialization failed");
         HotplugCallbackTermination();
         PowerCallbackTermination();
         UtilTermination();
         PerfTermination();
         GlobalObjectTermination();
-        LogTermination();
         return status;
     }
 
-    // Register re-initialization for the log functions if needed
-    if (need_reinitialization)
-    {
-        LogRegisterReinitialization(pDriverObject);
-    }
+    is_vm_init_ = TRUE;
 
-    HYPERPLATFORM_LOG_INFO("The VMM has been installed.");
+    LOG_INFO("The VMM has been installed.");
     return status;
 }
 
 VOID VmUtils::UnInitVm()
 {
+    if (!is_vm_init_)
+    {
+        LOG_INFO("vm is not inited, uninit vm failed");
+        return;
+    }
+
     VmTermination();
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
     PerfTermination();
     GlobalObjectTermination();
-    LogTermination();
+
+    is_vm_init_ = FALSE;
+
+    LOG_INFO("The VMM has been uninstalled.");
+}
+
+PDRIVER_OBJECT VmUtils::GetDriverObject(PCWSTR driverName)
+{
+    UNICODE_STRING ustrDriverName;
+    RtlInitUnicodeString(&ustrDriverName, driverName);
+
+    PDRIVER_OBJECT pDriverObject;
+    NTSTATUS ntStatus = ObReferenceObjectByName(
+        &ustrDriverName, 0, NULL, 0, *IoDriverObjectType, KernelMode, NULL, (PVOID*)&pDriverObject);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        return NULL;
+    }
+
+    return pDriverObject;
 }
 
 BOOL VmUtils::DriverpIsSuppoetedOS()

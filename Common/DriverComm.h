@@ -13,7 +13,7 @@ public:
     }
 
     // 初始化驱动通信
-    bool Init();
+    bool Init(bool normalLoad);
 
     // 通过建立MDL映射读进程内存
     bool ReadProcessMemoryByMdl(IN DWORD pid, IN PBYTE pUserSrc, IN ULONG readLen, OUT PBYTE pUserDst);

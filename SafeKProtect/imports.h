@@ -631,4 +631,17 @@ extern "C"
             _In_opt_ PVOID SystemArgument2,
             _In_ KPRIORITY Increment
         );
+
+    NTKERNELAPI NTSTATUS NTAPI ObReferenceObjectByName(
+        PUNICODE_STRING ObjectPath,
+        ULONG Attributes,
+        PACCESS_STATE PassedAccessState OPTIONAL,
+        ACCESS_MASK DesiredAccess OPTIONAL,
+        POBJECT_TYPE ObjectType,
+        KPROCESSOR_MODE AccessMode,
+        PVOID ParseContext OPTIONAL,
+        PVOID* ObjectPtr
+    );
+
+    NTKERNELAPI POBJECT_TYPE* IoDriverObjectType;
 }

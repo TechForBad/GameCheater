@@ -116,19 +116,22 @@ int main()
 
     // 初始化驱动通信
     g_pDriverComm = DriverComm::GetInstance();
-    if (!g_pDriverComm->Init())
+    if (!g_pDriverComm->Init(true))
     {
         LOG("Init failed");
         return -1;
     }
 
+    // 初始化VM
+    g_pDriverComm->InitVm();
+
+    /*
     // 输入进程号
     DWORD pid = 0;
     printf("Input Process Id: ");
     std::cin >> pid;
     printf("Output: %d\n", pid);
 
-    /*
     DWORD pid = 0;
     if (!tool::GetProcessId(L"windbg.exe", &pid))
     {

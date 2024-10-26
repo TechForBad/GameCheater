@@ -48,8 +48,8 @@ struct DestructorEntry {
 //
 
 #if defined(ALLOC_PRAGMA)
-#pragma alloc_text(INIT, GlobalObjectInitialization)
-#pragma alloc_text(INIT, atexit)
+#pragma alloc_text(PAGE, GlobalObjectInitialization)
+#pragma alloc_text(PAGE, atexit)
 #pragma alloc_text(PAGE, GlobalObjectTermination)
 #endif
 

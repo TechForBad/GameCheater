@@ -7,7 +7,6 @@
 
 #include "power_callback.h"
 #include "common.h"
-#include "log.h"
 #include "vm.h"
 
 extern "C" {
@@ -34,7 +33,7 @@ extern "C" {
 static CALLBACK_FUNCTION PowerCallbackpCallbackRoutine;
 
 #if defined(ALLOC_PRAGMA)
-#pragma alloc_text(INIT, PowerCallbackInitialization)
+#pragma alloc_text(PAGE, PowerCallbackInitialization)
 #pragma alloc_text(PAGE, PowerCallbackTermination)
 #pragma alloc_text(PAGE, PowerCallbackpCallbackRoutine)
 #endif
@@ -93,7 +92,7 @@ _Use_decl_annotations_ static void PowerCallbackpCallbackRoutine(
   UNREFERENCED_PARAMETER(callback_context);
   PAGED_CODE()
 
-  HYPERPLATFORM_LOG_DEBUG("PowerCallback %p:%p", argument1, argument2);
+  LOG_DEBUG("PowerCallback %p:%p", argument1, argument2);
 
   if (argument1 != reinterpret_cast<void*>(PO_CB_SYSTEM_STATE_LOCK)) {
     return;
@@ -103,15 +102,15 @@ _Use_decl_annotations_ static void PowerCallbackpCallbackRoutine(
 
   if (argument2) {
     // the computer has just reentered S0.
-    HYPERPLATFORM_LOG_INFO("Resuming the system...");
+    LOG_INFO("Resuming the system...");
     auto status = VmInitialization();
     if (!NT_SUCCESS(status)) {
-      HYPERPLATFORM_LOG_ERROR(
+      LOG_ERROR(
           "Failed to re-virtualize processors. Please unload the driver.");
     }
   } else {
     // the computer is about to exit system power state S0
-    HYPERPLATFORM_LOG_INFO("Suspending the system...");
+    LOG_INFO("Suspending the system...");
     VmTermination();
   }
 }
