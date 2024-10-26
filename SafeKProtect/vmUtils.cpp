@@ -36,58 +36,58 @@ NTSTATUS VmUtils::InitVm()
     }
 
     // Initialize global variables
-    NTSTATUS status = GlobalObjectInitialization();
-    if (!NT_SUCCESS(status))
+    NTSTATUS ntStatus = GlobalObjectInitialization();
+    if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("GlobalObjectInitialization failed");
-        return status;
+        return ntStatus;
     }
 
     // Initialize perf functions
-    status = PerfInitialization();
-    if (!NT_SUCCESS(status))
+    ntStatus = PerfInitialization();
+    if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("PerfInitialization failed");
         GlobalObjectTermination();
-        return status;
+        return ntStatus;
     }
 
     // Initialize utility functions
-    status = UtilInitialization(pDriverObject);
-    if (!NT_SUCCESS(status))
+    ntStatus = UtilInitialization(pDriverObject);
+    if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("UtilInitialization failed");
         PerfTermination();
         GlobalObjectTermination();
-        return status;
+        return ntStatus;
     }
 
     // Initialize power callback
-    status = PowerCallbackInitialization();
-    if (!NT_SUCCESS(status))
+    ntStatus = PowerCallbackInitialization();
+    if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("PowerCallbackInitialization failed");
         UtilTermination();
         PerfTermination();
         GlobalObjectTermination();
-        return status;
+        return ntStatus;
     }
 
     // Initialize hot-plug callback
-    status = HotplugCallbackInitialization();
-    if (!NT_SUCCESS(status))
+    ntStatus = HotplugCallbackInitialization();
+    if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("HotplugCallbackInitialization failed");
         PowerCallbackTermination();
         UtilTermination();
         PerfTermination();
         GlobalObjectTermination();
-        return status;
+        return ntStatus;
     }
 
     // Virtualize all processors
-    status = VmInitialization();
-    if (!NT_SUCCESS(status))
+    ntStatus = VmInitialization();
+    if (!NT_SUCCESS(ntStatus))
     {
         LOG_ERROR("VmInitialization failed");
         HotplugCallbackTermination();
@@ -95,13 +95,13 @@ NTSTATUS VmUtils::InitVm()
         UtilTermination();
         PerfTermination();
         GlobalObjectTermination();
-        return status;
+        return ntStatus;
     }
 
     is_vm_init_ = TRUE;
 
     LOG_INFO("The VMM has been installed.");
-    return status;
+    return ntStatus;
 }
 
 VOID VmUtils::UnInitVm()

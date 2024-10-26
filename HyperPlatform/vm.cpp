@@ -342,7 +342,7 @@ _Use_decl_annotations_ static NTSTATUS VmpStartVm(void *context) {
   PAGED_CODE()
 
   LOG_INFO("Initializing VMX for the processor %lu.",
-                         KeGetCurrentProcessorNumberEx(nullptr));
+           KeGetCurrentProcessorNumberEx(nullptr));
   const auto ok = AsmInitializeVm(VmpInitializeVm, context);
   NT_ASSERT(VmpIsHyperPlatformInstalled() == ok);
   if (!ok) {

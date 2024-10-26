@@ -12,8 +12,9 @@ const static char* szLevel[] = { "DEBUG", "INFO", "WARN", "ERROR" };
 template <typename... Args>
 void log(int _level, const char* _file, int _line, const char* _fun, const char* fmt, Args... args)
 {
-    KdPrint(("[%s] %s(%d)::%s", szLevel[_level], _file, _line, _fun));
+    KdPrint(("[%s] %s(%d)::%s\n", szLevel[_level], _file, _line, _fun));
     KdPrint((fmt, args...));
+    KdPrint(("\n"));
 }
 
 #define __FUNC__ __func__
